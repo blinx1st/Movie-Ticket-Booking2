@@ -1,30 +1,32 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Public } from 'src/decorator/customize';
+import { CreateShowtimeDto, UpdateShowtimeDto } from './dto/create-showtime.dto';
 import { ShowtimesService } from './showtimes.service';
-import { CreateShowtimeDto } from './dto/create-showtime.dto';
-import { UpdateShowtimeDto } from './dto/update-showtime.dto';
 
 @Controller('showtimes')
 export class ShowtimesController {
   constructor(private readonly showtimesService: ShowtimesService) {}
 
   @Post()
-  create(@Body() createShowtimeDto: CreateShowtimeDto) {
-    return this.showtimesService.create(createShowtimeDto);
+  create(@Body() dto: CreateShowtimeDto) {
+    return this.showtimesService.create(dto);
   }
 
   @Get()
-  findAll() {
-    return this.showtimesService.findAll();
+  @Public()
+  findAll(@Query('movieId') movieId?: string) {
+    return this.showtimesService.findAll(movieId ? +movieId : undefined);
   }
 
   @Get(':id')
+  @Public()
   findOne(@Param('id') id: string) {
     return this.showtimesService.findOne(+id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateShowtimeDto: UpdateShowtimeDto) {
-    return this.showtimesService.update(+id, updateShowtimeDto);
+  update(@Param('id') id: string, @Body() dto: UpdateShowtimeDto) {
+    return this.showtimesService.update(+id, dto);
   }
 
   @Delete(':id')

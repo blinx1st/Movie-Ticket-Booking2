@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class CinemaRoom {
@@ -6,11 +6,11 @@ export class CinemaRoom {
   id: number;
 
   @Column()
-  name: string; // Tên phòng (Ví dụ: "Phòng 01")
+  name: string;
 
-  @Column({ default: 'Standard' })
-  type: string; // Loại phòng (Standard, IMAX, 3D...)
+  @Column({ default: '2D' })
+  type: string;
 
   @Column({ type: 'int', default: 0 })
-  capacity: number; // Số ghế trong phòng
+  capacity: number;
 }

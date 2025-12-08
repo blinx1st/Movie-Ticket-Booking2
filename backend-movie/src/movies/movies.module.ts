@@ -3,9 +3,10 @@ import { MoviesService } from './movies.service';
 import { MoviesController } from './movies.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Movie } from './entities/movie.entity';
+import { ShowtimesModule } from 'src/showtimes/showtimes.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Movie])], // <-- QUAN TRỌNG: Đăng ký Movie Entity
+  imports: [TypeOrmModule.forFeature([Movie]), ShowtimesModule],
   controllers: [MoviesController],
   providers: [MoviesService],
 })

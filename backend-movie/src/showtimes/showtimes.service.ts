@@ -1,26 +1,53 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Showtime } from './entities/showtime.entity';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
 import { UpdateShowtimeDto } from './dto/update-showtime.dto';
 
 @Injectable()
 export class ShowtimesService {
-  create(createShowtimeDto: CreateShowtimeDto) {
-    return 'This action adds a new showtime';
+  constructor(
+    @InjectRepository(Showtime)
+    private readonly showtimeRepo: Repository<Showtime>,
+  ) {}
+
+  async create(dto: CreateShowtimeDto) {
+    const showtime = this.showtimeRepo.create({
+      ...dto,
+      movieId: Number(dto.movieId),
+      price: Number(dto.price ?? 0),
+      times: dto.times ?? [],
+    } as any);
+    return this.showtimeRepo.save(showtime);
   }
 
-  findAll() {
-    return `This action returns all showtimes`;
+  async findAll(movieId?: number) {
+    const qb = this.showtimeRepo.createQueryBuilder('showtime').orderBy('showtime.startTime', 'ASC');
+    if (movieId) qb.where('showtime.movieId = :movieId', { movieId: Number(movieId) });
+    return qb.getMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} showtime`;
+  async findOne(id: number) {
+    const showtime = await this.showtimeRepo.findOne({ where: { id } });
+    if (!showtime) throw new NotFoundException('Showtime not found');
+    return showtime;
   }
 
-  update(id: number, updateShowtimeDto: UpdateShowtimeDto) {
-    return `This action updates a #${id} showtime`;
+  async update(id: number, dto: UpdateShowtimeDto) {
+    const showtime = await this.findOne(id);
+    this.showtimeRepo.merge(showtime, {
+      ...dto,
+      movieId: dto.movieId ? Number(dto.movieId) : showtime.movieId,
+      price: dto.price !== undefined ? Number(dto.price) : showtime.price,
+      times: dto.times ?? showtime.times,
+    } as any);
+    return this.showtimeRepo.save(showtime);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} showtime`;
+  async remove(id: number) {
+    const result = await this.showtimeRepo.delete(id);
+    if (result.affected === 0) throw new NotFoundException('Showtime not found');
+    return { message: 'Deleted successfully' };
   }
 }

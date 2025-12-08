@@ -1,17 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ShowtimesService } from './showtimes.service';
-import { ShowtimesController } from './showtimes.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Showtime } from './entities/showtime.entity';
-import { CinemaRoom } from './entities/cinema-room.entity'; // <-- Import
+import { ShowtimesService } from './showtimes.service';
+import { ShowtimesController } from './showtimes.controller';
 
 @Module({
-  imports: [
-    // Đăng ký cả 2 entity thuộc quyền quản lý của module này
-    TypeOrmModule.forFeature([Showtime, CinemaRoom]), 
-  ],
+  imports: [TypeOrmModule.forFeature([Showtime])],
   controllers: [ShowtimesController],
   providers: [ShowtimesService],
-  exports: [TypeOrmModule] // Cho phép module khác dùng ké nếu cần
+  exports: [TypeOrmModule, ShowtimesService],
 })
 export class ShowtimesModule {}

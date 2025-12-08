@@ -41,7 +41,6 @@ export class SeatsService {
     // Chúng ta cần join bảng 'movie' và 'room' để lấy thông tin chi tiết
     const showtime = await this.showtimeRepository.findOne({
       where: { id: showtimeId },
-      relations: ['movie', 'room'], // <-- Quan trọng: Lấy cả thông tin Phòng và Phim
     });
 
     if (!showtime) {
@@ -49,7 +48,7 @@ export class SeatsService {
     }
 
     // Validate: Suất chiếu này có đúng là đang chiếu phim khách chọn không?
-    if (showtime.movie.id !== movieId) {
+    if (showtime.movieId !== movieId) {
       throw new BadRequestException('Dữ liệu không khớp: Suất chiếu này không chiếu bộ phim bạn chọn!');
     }
 
@@ -82,7 +81,9 @@ export class SeatsService {
     let totalAmount = 0;
     
     // Lấy giá gốc từ Phim trong Suất chiếu
-    const basePrice = Number(showtime.movie.ticketPrice); 
+    const movie = await this.movieRepository.findOne({ where: { id: movieId } });
+    if (!movie) throw new NotFoundException('Movie not found');
+    const basePrice = Number(movie?.ticketPrice ?? 0); 
 
     selectedSeats.forEach((seat) => {
       let currentSeatPrice = basePrice;
@@ -100,7 +101,7 @@ export class SeatsService {
       bookingDate: new Date(), // Thời điểm bấm nút đặt
       status: 'Paid',
       totalAmount,
-      movie: showtime.movie, // Link booking với phim
+      movie: movie!, // Link booking với phim
     });
 
     const savedBooking = await this.bookingRepository.save(booking);
@@ -122,8 +123,8 @@ export class SeatsService {
       bookingId: savedBooking.id,
       
       // Thông tin chi tiết cho Frontend hiển thị
-      movieTitle: showtime.movie.title,
-      cinemaRoom: showtime.room ? `${showtime.room.name} (${showtime.room.type})` : 'Chưa cập nhật phòng',
+      movieTitle: movie?.title ?? 'Unknown movie',
+      cinemaRoom: showtime.room || 'Chưa cập nhật phòng',
       showTime: showtime.startTime,     // Giờ chiếu phim
       bookingTime: savedBooking.bookingDate, // Giờ khách đặt vé
       

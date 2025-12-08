@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { Movie } from './entities/movie.entity';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
+import { ShowtimesService } from 'src/showtimes/showtimes.service';
 
 @Injectable()
 export class MoviesService {
   constructor(
     @InjectRepository(Movie)
     private readonly movieRepository: Repository<Movie>,
+    private readonly showtimesService: ShowtimesService,
   ) {}
 
   async create(createMovieDto: CreateMovieDto) {
@@ -35,11 +37,13 @@ export class MoviesService {
         : { slug: String(slugOrId) };
     const movie = await this.movieRepository.findOne({ where });
     if (!movie) throw new NotFoundException('Movie not found');
-    return movie;
+    const showtimes = await this.showtimesService.findAll(movie.id);
+    return { ...movie, showtimes };
   }
 
   async update(id: number, updateMovieDto: UpdateMovieDto) {
-    const movie = await this.findOne(id);
+    const movie = await this.movieRepository.findOne({ where: { id } });
+    if (!movie) throw new NotFoundException('Movie not found');
     const slug = updateMovieDto.slug || this.buildSlug(updateMovieDto.title || movie.title);
     this.movieRepository.merge(movie, { ...updateMovieDto, slug } as any);
     return this.movieRepository.save(movie);

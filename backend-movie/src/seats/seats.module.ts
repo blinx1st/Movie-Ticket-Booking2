@@ -7,9 +7,6 @@ import { Ticket } from './entities/ticket.entity';
 import { Booking } from '../revenue/entities/booking.entity';
 import { Movie } from '../movies/entities/movie.entity'; // <-- 1. Import Movie
 import { Showtime } from '../showtimes/entities/showtime.entity'; 
-import { CinemaRoom } from '../showtimes/entities/cinema-room.entity'; // <-- Import
-
-
 @Module({
   imports: [
     // 2. Đăng ký đủ 4 Entity: Seat, Ticket, Booking, VÀ Movie

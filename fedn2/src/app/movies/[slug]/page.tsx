@@ -35,6 +35,7 @@ export default function MovieDetailPage() {
   const slug = useMemo(() => (params?.slug ? String(params.slug) : ""), [params]);
 
   const [movie, setMovie] = useState<MovieDetailApi | null>(null);
+  const [showtimes, setShowtimes] = useState<MovieDetailApi["showtimes"]>([]);
   const [loading, setLoading] = useState(true);
   const [notFoundFlag, setNotFoundFlag] = useState(false);
 
@@ -48,7 +49,15 @@ export default function MovieDetailPage() {
           method: "GET",
         });
         if (res?.data) {
-          setMovie(res.data);
+          setMovie(res.data as any);
+          if (Array.isArray((res.data as any).showtimes)) {
+            const mapped = (res.data as any).showtimes.map((s: any) => ({
+              cinema: s.cinema || "Cinema",
+              city: s.city || "",
+              times: s.times || [],
+            }));
+            setShowtimes(mapped);
+          }
           setNotFoundFlag(false);
           return;
         }
@@ -67,6 +76,31 @@ export default function MovieDetailPage() {
     };
     fetchMovie();
   }, [slug]);
+
+  useEffect(() => {
+    const movieKey = (movie as any)?.id ?? (movie as any)?._id;
+    if (!movieKey) return;
+    const fetchShowtimes = async () => {
+      try {
+        const res = await sendRequest<IBackendRes<any[]>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/showtimes`,
+          method: "GET",
+          queryParams: { movieId: movieKey },
+        });
+        if (Array.isArray(res?.data)) {
+          const mapped = res.data.map((s: any) => ({
+            cinema: s.cinema || "Cinema",
+            city: s.city || "",
+            times: s.times || [],
+          }));
+          setShowtimes(mapped);
+        }
+      } catch {
+        setShowtimes([]);
+      }
+    };
+    fetchShowtimes();
+  }, [movie]);
 
   const poster = movie?.posterUrl || (movie as any)?.poster;
   const banner = movie?.bannerUrl || (movie as any)?.banner || poster;
@@ -234,13 +268,13 @@ export default function MovieDetailPage() {
                 Go to booking
               </Link>
             </div>
-            {!movie.showtimes || movie.showtimes.length === 0 ? (
+            {!showtimes || showtimes.length === 0 ? (
               <p className="mt-4 text-sm text-gray-400">
                 Showtimes are being scheduled. Please check back soon.
               </p>
             ) : (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {movie.showtimes?.map((slot, idx) => (
+                {showtimes?.map((slot, idx) => (
                   <div
                     key={`${slot.cinema}-${idx}`}
                     className="space-y-2 rounded-xl border border-white/10 bg-slate-900/60 p-4"

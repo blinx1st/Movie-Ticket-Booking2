@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { Movie } from '../../movies/entities/movie.entity';
-import { CinemaRoom } from './cinema-room.entity'; // <-- Import Room
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Showtime {
@@ -8,14 +6,23 @@ export class Showtime {
   id: number;
 
   @Column()
+  movieId: number;
+
+  @Column({ nullable: true })
+  cinema?: string;
+
+  @Column({ nullable: true })
+  city?: string;
+
+  @Column('json')
+  times: string[];
+
+  @Column({ type: 'datetime' })
   startTime: Date;
 
-  // 👇 THAY ĐỔI: Bỏ roomName string, thay bằng quan hệ
-  @ManyToOne(() => CinemaRoom)
-  @JoinColumn({ name: 'roomId' })
-  room: CinemaRoom;
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  price: number;
 
-  @ManyToOne(() => Movie)
-  @JoinColumn({ name: 'movieId' })
-  movie: Movie;
+  @Column({ nullable: true })
+  room?: string;
 }
