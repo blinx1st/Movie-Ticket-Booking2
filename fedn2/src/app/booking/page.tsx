@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   Armchair,
   CalendarDays,
@@ -66,6 +66,14 @@ const formatMultiplier: Record<string, number> = {
 
 export default function BookingPage() {
   const { data: session } = useSession();
+  const displayName = useMemo(
+    () =>
+      (session?.user as any)?.name ||
+      (session?.user as any)?.full_name ||
+      (session?.user as any)?.email ||
+      "User",
+    [session?.user],
+  );
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [cinemas, setCinemas] = useState<Cinema[]>([]);
@@ -280,12 +288,25 @@ export default function BookingPage() {
             <Link href="/contact" className="hover:text-white">
               Contact
             </Link>
-            <Link
-              href="/auth/login"
-              className="rounded-full border border-white/10 px-4 py-2 font-semibold hover:border-white/30"
-            >
-              Login / Register
-            </Link>
+            {session?.user ? (
+              <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">
+                <span className="text-slate-200">Xin chào,</span>
+                <span className="text-white">{displayName}</span>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40 hover:text-white"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="rounded-full border border-white/10 px-4 py-2 font-semibold hover:border-white/30"
+              >
+                Login / Register
+              </Link>
+            )}
           </nav>
         </div>
       </header>
