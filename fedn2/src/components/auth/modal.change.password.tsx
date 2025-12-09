@@ -61,7 +61,8 @@ const ModalChangePassword = (props: any) => {
       },
     });
 
-    if (res?.data) {
+    const success = (res as any)?.data || (res as any)?.isBeforeCheck;
+    if (success) {
       setCurrent(2);
     } else {
       notification.error({

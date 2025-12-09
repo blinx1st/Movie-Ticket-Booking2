@@ -582,12 +582,10 @@ export default function BookingPage() {
                     <span>{multiplier.toFixed(2)}x</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Convenience</span>
-                    <span>12000 VND</span>
                   </div>
                   <div className="flex items-center justify-between text-base font-semibold text-white pt-2">
                     <span>Total</span>
-                    <span>{(total + 12000).toFixed(0)} VND</span>
+                    <span>{(total).toFixed(0)} VND</span>
                   </div>
                 </div>
 

@@ -23,8 +23,8 @@ export class User {
   @Prop()
   codeId: string;
 
-  @Prop()
-  codeExpired: string;
+  @Prop({ type: Date })
+  codeExpired: Date;
 
   @Prop({ default: false })
   isActive: boolean;

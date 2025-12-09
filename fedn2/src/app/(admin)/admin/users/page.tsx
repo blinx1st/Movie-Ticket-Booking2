@@ -214,7 +214,13 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (_id: string) => {
+  const handleDelete = async (user: BackendUser) => {
+    const isAdminRole = (user.role || "").toUpperCase().includes("ADMIN");
+    if (isAdminRole) {
+      message.warning("Không thể xóa tài khoản ADMIN.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this user?")) return;
     if (!accessToken) {
       message.error("Please sign in to manage users.");
@@ -222,7 +228,7 @@ export default function UsersPage() {
     }
 
     const res = await sendRequest<IBackendRes<any>>({
-      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/${_id}`,
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/${user._id}`,
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -423,8 +429,14 @@ export default function UsersPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(user._id)}
-                          className="text-red-600 hover:bg-red-50 p-1.5 rounded transition"
+                          onClick={() => handleDelete(user)}
+                          disabled={(user.role || "").toUpperCase().includes("ADMIN")}
+                          className={`p-1.5 rounded transition ${
+                            (user.role || "").toUpperCase().includes("ADMIN")
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-red-600 hover:bg-red-50"
+                          }`}
+                          title={(user.role || "").toUpperCase().includes("ADMIN") ? "Cannot delete ADMIN" : "Delete user"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

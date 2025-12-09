@@ -26,8 +26,8 @@ export default function AppSidebar() {
   const contentLinks = [
     { name: "Movies", path: "/admin/movies", icon: Film },
     { name: "Cinemas", path: "/admin/cinemas", icon: Monitor },
-    { name: "Screens", path: "/admin/screens", icon: Monitor },
     { name: "Showtimes", path: "/admin/showtimes", icon: Calendar },
+    { name: "Rooms/Movies", path: "/admin/screens", icon: Monitor },
   ];
 
   const businessLinks = [

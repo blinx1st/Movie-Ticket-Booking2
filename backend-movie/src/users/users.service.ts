@@ -24,7 +24,7 @@ export class UsersService {
     private readonly mailerService: MailerService,
   ) {}
 
-  //Check email xem tồn tài ko
+  // Check email xem tồn tại không
   isEmailExist = async (email: string) => {
     const user = await this.userModel.exists({ email: email });
     if (user) return true;
@@ -34,7 +34,7 @@ export class UsersService {
   async create(createUserDto: CreateUserDto) {
     const { full_name, email, password, phone } = createUserDto;
 
-    //Check email
+    // Check email
     const isExist = await this.isEmailExist(email);
     if (isExist === true) {
       throw new BadRequestException(
@@ -42,7 +42,7 @@ export class UsersService {
       );
     }
 
-    ///hash password
+    // hash password
     const hashPassword = await hashPasswordHelper(password);
 
     const user = await this.userModel.create({
@@ -50,6 +50,7 @@ export class UsersService {
       email,
       password: hashPassword,
       phone,
+      isActive: true, // Admin-created accounts are active immediately
     });
     return {
       _id: user._id,
@@ -102,13 +103,21 @@ export class UsersService {
   }
 
   async remove(_id: string) {
-    //check id
-    if (mongoose.isValidObjectId(_id)) {
-      //delete
-      return this.userModel.deleteOne({ _id });
-    } else {
-      throw new BadRequestException('Id không dùng định dạng đúng mongdb');
+    if (!mongoose.isValidObjectId(_id)) {
+      throw new BadRequestException('Id không đúng định dạng MongoDB');
     }
+
+    const user = await this.userModel.findById(_id);
+    if (!user) {
+      throw new BadRequestException('Tài khoản không tồn tại');
+    }
+
+    const isAdmin = (user.role || '').toUpperCase().includes('ADMIN');
+    if (isAdmin) {
+      throw new BadRequestException('Không thể xóa tài khoản ADMIN');
+    }
+
+    return this.userModel.deleteOne({ _id });
   }
 
   async handleRegister(register: CreateAuthDto) {
@@ -236,21 +245,29 @@ export class UsersService {
         'Mật khẩu/Xác nhận mật khẩu không chính xác',
       );
     }
-    //Check email
-    const user = await this.userModel.findOne({ email: data.email });
+    // Require matching email + code to avoid replay
+    const user = await this.userModel.findOne({
+      email: data.email,
+      codeId: data.code,
+    });
     if (!user) {
-      throw new BadRequestException('Tài khoản không tồn tại');
-    }
-
-    //Check expire code
-    const isBeforeCheck = dayjs().isBefore(user.codeExpired);
-    if (isBeforeCheck) {
-      // valid => update Password
-      const newPassword = await hashPasswordHelper(data.password);
-      await user.updateOne({ password: newPassword });
-      return { isBeforeCheck };
-    } else {
       throw new BadRequestException('Mã code không hợp lệ & Đã hết hạn');
     }
+
+    // Check expire code
+    const isBeforeCheck =
+      !!user.codeExpired && dayjs().isBefore(dayjs(user.codeExpired));
+    if (!isBeforeCheck) {
+      throw new BadRequestException('Mã code không hợp lệ & Đã hết hạn');
+    }
+
+    // valid => update Password and clear reset code
+    const newPassword = await hashPasswordHelper(data.password);
+    await user.updateOne({
+      password: newPassword,
+      codeId: null,
+      codeExpired: null,
+    });
+    return { data: true };
   }
 }

@@ -343,32 +343,10 @@ export default function RevenuePage() {
                     className="w-full rounded border border-stroke bg-transparent py-3 px-4 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
                   />
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black dark:text-white">Movie ID</label>
-                  <input
-                    value={formData.movieId}
-                    onChange={(e) => setFormData({ ...formData, movieId: e.target.value })}
-                    className="w-full rounded border border-stroke bg-transparent py-3 px-4 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black dark:text-white">Showtime ID</label>
-                  <input
-                    value={formData.showtimeId}
-                    onChange={(e) => setFormData({ ...formData, showtimeId: e.target.value })}
-                    className="w-full rounded border border-stroke bg-transparent py-3 px-4 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                  />
-                </div>
+              
+               
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-black dark:text-white">Note</label>
-                <textarea
-                  value={formData.note}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  className="w-full rounded border border-stroke bg-transparent py-3 px-4 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                  rows={3}
-                />
-              </div>
+             
 
               <button
                 onClick={saveTx}
