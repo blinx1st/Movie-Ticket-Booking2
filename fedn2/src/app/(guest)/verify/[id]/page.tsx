@@ -3,11 +3,11 @@ import Image from "next/image";
 import batmanBg from "@/app/(guest)/auth/login/batman2.jpg";
 
 type VerifyPageProps = {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 };
 
-const VerifyPage = async ({ params }: VerifyPageProps) => {
-  const { id } = await params;
+const VerifyPage = ({ params }: VerifyPageProps) => {
+  const { id } = params;
   return (
     <div className="relative min-h-screen">
       <div className="absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
@@ -30,5 +30,7 @@ const VerifyPage = async ({ params }: VerifyPageProps) => {
       </div>
     </div>
   );
-}
+};
+
+export default VerifyPage;
 
