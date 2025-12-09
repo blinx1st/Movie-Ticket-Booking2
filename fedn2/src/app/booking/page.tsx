@@ -82,8 +82,8 @@ export default function BookingPage() {
   const [paid, setPaid] = useState(false);
 
   const userId = useMemo(() => {
-    const uid = (session?.user as any)?._id;
-    return uid ? Number(uid) : 1; // fallback mock user
+    const uid = (session?.user as any)?._id || (session as any)?.user?.id;
+    return uid ? String(uid) : undefined;
   }, [session]);
 
   // Fetch base data
@@ -194,6 +194,10 @@ export default function BookingPage() {
       message.warning("Please select seats");
       return;
     }
+    if (!userId) {
+      message.warning("Please sign in to complete payment");
+      return;
+    }
     setIsPaying(true);
     try {
       await sendRequest({
@@ -209,8 +213,14 @@ export default function BookingPage() {
       });
       message.success("Payment success & seats booked");
       setPaid(true);
+      // Mark local seats as booked immediately
+      setSeats((prev) =>
+        prev.map((s) =>
+          selectedSeats.includes(s.id) ? { ...s, isBooked: true } : s,
+        ),
+      );
       setSelectedSeats([]);
-      // refresh seats status
+      // refresh seats status from server
       const res = await sendRequest<IBackendRes<SeatStatus[]>>({
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seats/status`,
         method: "GET",

@@ -3,28 +3,36 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Film, 
-  Monitor, 
-  Calendar,  
-  Ticket, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  Home 
+import {
+  LayoutDashboard,
+  Film,
+  Monitor,
+  Calendar,
+  Ticket,
+  BarChart3,
+  Users,
+  Home,
 } from "lucide-react";
 import { useSidebar } from "@/context/SidebarContext";
 
 export default function AppSidebar() {
   const pathname = usePathname();
   const sidebar = useSidebar();
-  // guard if provider is missing for some reason
   if (!sidebar) return null;
   const { isMobileOpen, toggleSidebarMobile } = sidebar;
 
-  // Kiểm tra link nào đang active để tô màu xanh
   const isActive = (path: string) => pathname === path;
+
+  const contentLinks = [
+    { name: "Movies", path: "/admin/movies", icon: Film },
+    { name: "Cinemas", path: "/admin/cinemas", icon: Monitor },
+    { name: "Screens", path: "/admin/screens", icon: Monitor },
+    { name: "Showtimes", path: "/admin/showtimes", icon: Calendar },
+  ];
+
+  const businessLinks = [
+    { name: "Revenue", path: "/admin/revenue", icon: BarChart3 },
+  ];
 
   return (
     <aside
@@ -32,22 +40,20 @@ export default function AppSidebar() {
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      {/* LOGO & Header Sidebar */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-2 px-6 py-6">
         <Link href="/admin/dashboard" className="flex items-center gap-2 text-2xl font-bold tracking-wide">
           <Film className="h-8 w-8 text-blue-500" />
           <span>Admin</span>
         </Link>
-        
-        {/* Nút tắt sidebar trên mobile */}
-        <button onClick={toggleSidebarMobile} className="block lg:hidden text-gray-400">
-           ✕
+        <button onClick={toggleSidebarMobile} className="block text-gray-400 lg:hidden">
+          ✕
         </button>
       </div>
 
-      {/* User Profile rút gọn */}
-      <div className="px-6 pb-6 mb-4 border-b border-gray-700/50 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-sm shadow-md">
+      {/* User */}
+      <div className="mb-4 flex items-center gap-3 border-b border-gray-700/50 px-6 pb-6">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold shadow-md">
           AD
         </div>
         <div>
@@ -56,11 +62,10 @@ export default function AppSidebar() {
         </div>
       </div>
 
-      {/* MENU LIST */}
-      <div className="no-scrollbar flex flex-col overflow-y-auto px-4 duration-300 ease-linear">
+      {/* Menu */}
+      <div className="no-scrollbar flex flex-col overflow-y-auto px-4">
         <nav className="space-y-6">
-          
-          {/* Nhóm 1: Main */}
+          {/* Main */}
           <div>
             <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Main Navigation</h3>
             <ul className="space-y-1">
@@ -78,43 +83,17 @@ export default function AppSidebar() {
             </ul>
           </div>
 
-          {/* Nhóm 2: Content */}
-              <div>
-                <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Content Management</h3>
-                <ul className="space-y-1">
-                  {[
-                    { name: "Movies", path: "/admin/movies", icon: Film },
-                    { name: "Cinemas", path: "/admin/cinemas", icon: Monitor },
-                    { name: "Screens", path: "/admin/screens", icon: Monitor },
-                    { name: "Showtimes", path: "/admin/showtimes", icon: Calendar }
-                  ].map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.path}
-                        className={`group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium transition-colors ${
-                          isActive(item.path) ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                        }`}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-          {/* Nhóm 3: Business */}
+          {/* Content */}
           <div>
-            <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Business Management</h3>
+            <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Content Management</h3>
             <ul className="space-y-1">
-              {[
-                { name: "Bookings", path: "/admin/bookings", icon: Ticket },
-                { name: "Revenue", path: "/admin/revenue", icon: BarChart3 },
-              ].map((item) => (
+              {contentLinks.map((item) => (
                 <li key={item.name}>
                   <Link
                     href={item.path}
-                    className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                    className={`group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium transition-colors ${
+                      isActive(item.path) ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    }`}
                   >
                     <item.icon className="h-5 w-5" />
                     {item.name}
@@ -124,32 +103,48 @@ export default function AppSidebar() {
             </ul>
           </div>
 
-          {/* Nhóm 4: System */}
+          {/* Business */}
+          <div>
+            <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Business Management</h3>
+            <ul className="space-y-1">
+              {businessLinks.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    href={item.path}
+                    className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* System */}
           <div>
             <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">System</h3>
             <ul className="space-y-1">
               <li>
-                <Link href="/admin/users" className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-gray-300 hover:bg-gray-800 hover:text-white">
+                <Link
+                  href="/admin/users"
+                  className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                >
                   <Users className="h-5 w-5" />
                   Users
                 </Link>
               </li>
-              <li>
-                <Link href="/admin/settings" className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-gray-300 hover:bg-gray-800 hover:text-white">
-                  <Settings className="h-5 w-5" />
-                  Settings
-                </Link>
-              </li>
-              {/* Nút về trang chủ */}
-              <li className="pt-4 mt-4 border-t border-gray-700">
-                <Link href="/" className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-blue-400 hover:bg-blue-600/10 transition-colors">
+              <li className="mt-4 border-t border-gray-700 pt-4">
+                <Link
+                  href="/"
+                  className="group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium text-blue-400 transition-colors hover:bg-blue-600/10"
+                >
                   <Home className="h-5 w-5" />
                   Back to Home
                 </Link>
               </li>
             </ul>
           </div>
-
         </nav>
       </div>
     </aside>

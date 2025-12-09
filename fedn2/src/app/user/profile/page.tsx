@@ -140,12 +140,20 @@ export default function UserProfilePage() {
             <h1 className="text-2xl font-bold">Profile</h1>
             <p className="text-sm text-gray-400">Manage your account details.</p>
           </div>
-          <Link
-            href="/user/tickets"
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold hover:border-white/40"
-          >
-            View tickets
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold hover:border-white/40"
+            >
+              ← Home
+            </Link>
+            <Link
+              href="/user/tickets"
+              className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold hover:border-white/40"
+            >
+              View tickets
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -299,7 +307,10 @@ export default function UserProfilePage() {
                       <p className="text-base font-semibold text-white">{formatCurrency(ticket.total)}</p>
                       <p className="text-xs text-gray-400">Payment: {ticket.payment}</p>
                     </div>
-                    <Link href="/user/tickets" className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-white/40">
+                    <Link
+                      href={`/user/tickets?bookingId=${ticket.bookingId}`}
+                      className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-white/40"
+                    >
                       Xem chi tiết
                     </Link>
                   </div>

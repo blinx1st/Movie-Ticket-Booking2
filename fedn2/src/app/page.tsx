@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -30,6 +32,7 @@ type ApiMovie = {
 };
 
 export default function HomePage() {
+  const { data: session } = useSession();
   const [activeIdx, setActiveIdx] = useState(0);
   const [movies, setMovies] = useState<ApiMovie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,18 +121,40 @@ export default function HomePage() {
           </nav>
 
           <div className="flex items-center gap-3 text-sm">
-            <Link
-              href="/auth/login"
-              className="rounded-full border border-white/15 px-4 py-2 font-semibold hover:border-white/40"
-            >
-              Login
-            </Link>
-            <Link
-              href="/auth/register"
-              className="rounded-full bg-blue-600 px-4 py-2 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(37,99,235,0.8)] hover:bg-blue-500"
-            >
-              Register
-            </Link>
+            {!session?.user ? (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="rounded-full border border-white/15 px-4 py-2 font-semibold hover:border-white/40"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="rounded-full bg-blue-600 px-4 py-2 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(37,99,235,0.8)] hover:bg-blue-500"
+                >
+                  Register
+                </Link>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="rounded-full border border-white/15 px-4 py-2 font-semibold text-gray-100 bg-white/5">
+                  Xin chào, {(session.user as any)?.name || (session.user as any)?.email || "User"}
+                </span>
+                <Link
+                  href="/user/profile"
+                  className="rounded-full bg-blue-600 px-4 py-2 font-semibold text-white shadow-[0_10px_30px_-12px_rgba(37,99,235,0.8)] hover:bg-blue-500"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                  className="rounded-full border border-white/20 px-4 py-2 font-semibold text-gray-100 hover:border-white/40"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
