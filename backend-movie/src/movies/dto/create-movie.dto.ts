@@ -37,10 +37,19 @@ export class CreateMovieDto {
   @ApiProperty() @IsString() language: string;
   @ApiProperty() @IsString() description: string;
   @ApiProperty() @IsString() posterUrl: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsString() bannerUrl?: string;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  bannerUrl?: string;
   @ApiProperty() @IsDateString() releaseDate: Date;
-  @ApiProperty({ required: false }) @IsOptional() @IsDateString() endDate?: Date;
-  @ApiProperty({ required: false }) @IsOptional() @IsString() trailerUrl?: string;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsDateString()
+  endDate?: Date;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  trailerUrl?: string;
   @ApiProperty({ required: false, type: [ShowtimeDto] })
   @IsOptional()
   @IsArray()

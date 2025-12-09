@@ -10,4 +10,4 @@ import { CinemaRoomsService } from './cinema-room.service';
   providers: [CinemaRoomsService],
   exports: [CinemaRoomsService],
 })
-export class CinemaRoomsModule { }
+export class CinemaRoomsModule {}

@@ -20,5 +20,9 @@ export class Movie {
   @Column('date') releaseDate: Date;
   @Column('date', { nullable: true }) endDate: Date;
   @Column({ nullable: true }) trailerUrl: string;
-  @Column('json', { nullable: true }) showtimes: { cinema: string; city: string; times: string[] }[];
+  @Column('json', { nullable: true }) showtimes: {
+    cinema: string;
+    city: string;
+    times: string[];
+  }[];
 }

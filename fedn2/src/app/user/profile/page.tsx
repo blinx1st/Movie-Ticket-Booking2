@@ -1,80 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock3, CreditCard, Film, Loader2, Mail, Phone, Ticket, User2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { message } from "antd";
+import { CheckCircle2, CreditCard, Film, Loader2, Mail, Phone, Ticket, User2 } from "lucide-react";
+import { sendRequest } from "@/utils/api";
 
-const mockProfile = {
-  fullName: "Jane Doe",
-  email: "jane@example.com",
-  phone: "+84 912 345 678",
+type Booking = {
+  id: number;
+  totalAmount: number;
+  bookingDate: string;
+  status: string;
+  paymentMethod?: string;
+  tickets?: {
+    id: number;
+    price: number;
+    seat: { row: string; number: number };
+    showtimeId: number;
+  }[];
 };
-
-const mockTransactions = [
-  {
-    id: "TXN-2033",
-    item: "Dune: Part Two",
-    date: "10/03/2024 - 19:30",
-    method: "Momo Wallet",
-    amount: 260000,
-    status: "Completed",
-  },
-  {
-    id: "TXN-2032",
-    item: "Kung Fu Panda 4",
-    date: "01/03/2024 - 14:10",
-    method: "Visa ** 3048",
-    amount: 180000,
-    status: "Completed",
-  },
-  {
-    id: "TXN-2031",
-    item: "Snack combo (Popcorn + Cola)",
-    date: "27/02/2024 - 20:05",
-    method: "Counter payment",
-    amount: 95000,
-    status: "Pending",
-  },
-];
-
-const mockTickets = [
-  {
-    id: "MVS-3882",
-    movie: "Dune: Part Two",
-    time: "Fri, 15 Mar 2024 - 19:30",
-    cinema: "CGV Vincom Landmark",
-    seats: ["E7", "E8"],
-    room: "Room 5 - IMAX",
-    status: "Active",
-    payment: "Momo Wallet",
-    total: 260000,
-    code: "8KD2-P19Q",
-  },
-  {
-    id: "MVS-3859",
-    movie: "Kung Fu Panda 4",
-    time: "Sun, 03 Mar 2024 - 14:10",
-    cinema: "Lotte Cinema Go Vap",
-    seats: ["D10"],
-    room: "Room 3",
-    status: "Used",
-    payment: "Visa ** 3048",
-    total: 180000,
-    code: "6JW2-C3MV",
-  },
-  {
-    id: "MVS-3822",
-    movie: "Oppenheimer",
-    time: "Sat, 24 Feb 2024 - 21:00",
-    cinema: "BHD Bitexco",
-    seats: ["B3", "B4"],
-    room: "Room 2 - 2D",
-    status: "Cancelled",
-    payment: "Refunded",
-    total: 220000,
-    code: "4MD8-J2KQ",
-  },
-];
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -84,9 +29,52 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 export default function UserProfilePage() {
-  const [profile, setProfile] = useState(mockProfile);
+  const { data: session, status } = useSession();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const userId = useMemo(() => {
+    const uid = (session?.user as any)?._id || (session as any)?.user?.id;
+    return uid ? String(uid) : undefined;
+  }, [session]);
+
+  // sync session info into profile fields
+  useEffect(() => {
+    const name = (session?.user as any)?.name || "";
+    const email = (session?.user as any)?.email || "";
+    const phone = (session?.user as any)?.phone || "";
+    setProfile((prev) => ({ ...prev, fullName: name, email, phone }));
+  }, [session]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await sendRequest<IBackendRes<Booking[]>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/me`,
+          method: "GET",
+          queryParams: { userId },
+        });
+        if (Array.isArray(res?.data)) setBookings(res.data);
+      } catch {
+        setBookings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [userId]);
 
   const handleSave = () => {
     setSaving(true);
@@ -95,8 +83,51 @@ export default function UserProfilePage() {
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      message.success("Saved locally (mock). Connect to profile API to persist.");
     }, 900);
   };
+
+  const transactions = bookings.map((b) => ({
+    id: b.id,
+    item: `Booking #${b.id}`,
+    date: new Date(b.bookingDate).toLocaleString(),
+    method: b.paymentMethod || "N/A",
+    amount: b.totalAmount,
+    status: b.status,
+  }));
+
+  const ticketsFlat =
+    bookings.flatMap((b) =>
+      (b.tickets || []).map((t) => ({
+        bookingId: b.id,
+        status: b.status,
+        payment: b.paymentMethod || "N/A",
+        total: b.totalAmount,
+        seat: t.seat ? `${t.seat.row}${t.seat.number}` : "",
+        price: t.price,
+      })),
+    ) || [];
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-[#020d1e] text-white flex items-center justify-center">
+        <div className="space-y-4 text-center">
+          <p className="text-lg text-gray-200">Please sign in to view your profile.</p>
+          <Link href="/auth/login" className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500">
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#020d1e] text-white flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#020d1e] text-white">
@@ -122,7 +153,7 @@ export default function UserProfilePage() {
         <div className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6 ring-1 ring-white/10">
           <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">
             <User2 className="h-4 w-4" />
-            Thong tin chung
+            Thông tin chung
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -176,17 +207,20 @@ export default function UserProfilePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">
               <CreditCard className="h-4 w-4" />
-              Lich su giao dich
+              Lịch sử giao dịch
             </div>
-            <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-gray-400">
-              Mock data
+              <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-gray-400">
+              {transactions.length} records
             </span>
           </div>
 
           <div className="divide-y divide-white/5">
-            {mockTransactions.map((tx) => {
+            {transactions.length === 0 && (
+              <p className="py-4 text-sm text-gray-400">Chưa có giao dịch.</p>
+            )}
+            {transactions.map((tx) => {
               const statusClass =
-                tx.status === "Completed"
+                tx.status === "Paid"
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
                   : tx.status === "Pending"
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
@@ -204,7 +238,7 @@ export default function UserProfilePage() {
                     <div>
                       <p className="text-sm font-semibold text-white">{tx.item}</p>
                       <p className="text-xs text-gray-400">{tx.date} - {tx.method}</p>
-                      <p className="text-[11px] text-gray-500">Ma giao dich: {tx.id}</p>
+                      <p className="text-[11px] text-gray-500">Mã giao dịch: {tx.id}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm">
@@ -222,21 +256,24 @@ export default function UserProfilePage() {
         <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6 ring-1 ring-white/10">
           <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">
             <Ticket className="h-4 w-4" />
-            Ve da mua
+            Vé đã mua
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {mockTickets.map((ticket) => {
+            {ticketsFlat.length === 0 && (
+              <p className="text-sm text-gray-400">Chưa có vé.</p>
+            )}
+            {ticketsFlat.map((ticket, idx) => {
               const statusClass =
-                ticket.status === "Active"
+                ticket.status === "Paid"
                   ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                  : ticket.status === "Used"
-                  ? "border-blue-500/40 bg-blue-500/10 text-blue-100"
+                  : ticket.status === "Pending"
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
                   : "border-rose-500/40 bg-rose-500/10 text-rose-100";
 
               return (
                 <div
-                  key={ticket.id}
+                  key={`${ticket.bookingId}-${idx}`}
                   className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.03] p-5 ring-1 ring-white/10"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -245,9 +282,11 @@ export default function UserProfilePage() {
                         <Film className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100/80">{ticket.id}</p>
-                        <h3 className="text-lg font-semibold leading-tight text-white">{ticket.movie}</h3>
-                        <p className="text-xs text-gray-400">{ticket.cinema}</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-blue-100/80">
+                          Booking #{ticket.bookingId}
+                        </p>
+                        <h3 className="text-lg font-semibold leading-tight text-white">Seat {ticket.seat}</h3>
+                        <p className="text-xs text-gray-400">Price: {formatCurrency(ticket.price)}</p>
                       </div>
                     </div>
                     <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${statusClass}`}>
@@ -255,45 +294,19 @@ export default function UserProfilePage() {
                     </span>
                   </div>
 
-                  <div className="mt-4 grid gap-3 text-sm text-gray-200 sm:grid-cols-2">
-                    <div className="flex items-center gap-2">
-                      <Clock3 className="h-4 w-4 text-blue-200" />
-                      <span>{ticket.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Ticket className="h-4 w-4 text-blue-200" />
-                      <span>Ghe: {ticket.seats.join(", ")}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-blue-200" />
-                      <span>{ticket.payment}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-blue-200" />
-                      <span>Ma check-in: {ticket.code}</span>
-                    </div>
-                  </div>
-
                   <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4 text-sm">
                     <div className="text-gray-200">
                       <p className="text-base font-semibold text-white">{formatCurrency(ticket.total)}</p>
-                      <p className="text-xs text-gray-400">{ticket.room}</p>
+                      <p className="text-xs text-gray-400">Payment: {ticket.payment}</p>
                     </div>
-                    <button className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-white/40">
-                      Xem chi tiet
-                    </button>
+                    <Link href="/user/tickets" className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-white/40">
+                      Xem chi tiết
+                    </Link>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 ring-1 ring-white/10">
-          <p className="text-sm text-gray-300">
-            This page uses mock data. Connect it to your auth/profile API (NestJS) and add an auth guard to redirect
-            to /auth/login when not authenticated.
-          </p>
         </div>
       </main>
     </div>

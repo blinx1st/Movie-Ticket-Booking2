@@ -1,10 +1,64 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, Clock3, MapPin, Star, TicketX } from "lucide-react";
-import { mockBookings, resolveMovieTitle } from "@/app/lib/mock-bookings";
+import { useSession } from "next-auth/react";
+import { CalendarDays, CheckCircle2, Clock3, Loader2, MapPin, Star, TicketX } from "lucide-react";
+import { sendRequest } from "@/utils/api";
+
+type Booking = {
+  id: number;
+  bookingDate: string;
+  status: string;
+  totalAmount: number;
+  tickets?: {
+    id: number;
+    price: number;
+    seat: { row: string; number: number };
+  }[];
+};
 
 export default function UserTicketsPage() {
+  const { data: session } = useSession();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const userId = useMemo(() => {
+    const uid = (session?.user as any)?._id;
+    return uid ? Number(uid) : undefined;
+  }, [session]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await sendRequest<IBackendRes<Booking[]>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/me`,
+          method: "GET",
+          queryParams: { userId },
+        });
+        if (Array.isArray(res?.data)) setBookings(res.data);
+      } catch {
+        setBookings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#020d1e] text-white flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#020d1e] text-white">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,#1d4ed8,transparent_28%),radial-gradient(circle_at_80%_0%,#0ea5e9,transparent_25%),radial-gradient(circle_at_70%_70%,#6b21a8,transparent_24%)] opacity-30 blur-[120px]" />
@@ -41,19 +95,22 @@ export default function UserTicketsPage() {
           </div>
 
           <div className="mt-4 space-y-3">
-            {mockBookings.map((bk) => (
+            {bookings.length === 0 && (
+              <p className="text-sm text-gray-400">Chưa có booking.</p>
+            )}
+            {bookings.map((bk) => (
               <div
                 key={bk.id}
                 className="grid gap-3 rounded-xl border border-white/10 bg-slate-900/60 p-4 md:grid-cols-[1.5fr_1fr]"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-base font-semibold text-white">{resolveMovieTitle(bk.movieSlug)}</p>
+                    <p className="text-base font-semibold text-white">Booking #{bk.id}</p>
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        bk.status === "PAID"
+                        bk.status === "Paid"
                           ? "bg-emerald-500/20 text-emerald-100"
-                          : bk.status === "PENDING"
+                          : bk.status === "Pending"
                           ? "bg-amber-500/20 text-amber-100"
                           : "bg-red-500/20 text-red-100"
                       }`}
@@ -62,15 +119,15 @@ export default function UserTicketsPage() {
                     </span>
                   </div>
                   <div className="text-xs text-gray-400">
-                    Booking ID: <span className="font-semibold text-gray-200">{bk.id}</span>
+                    Booking date: <span className="font-semibold text-gray-200">{new Date(bk.bookingDate).toLocaleString()}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-gray-300">
-                    {bk.seats.map((seat) => (
+                    {(bk.tickets || []).map((t) => (
                       <span
-                        key={seat}
+                        key={t.id}
                         className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 font-semibold"
                       >
-                        {seat}
+                        Seat {t.seat ? `${t.seat.row}${t.seat.number}` : t.id}
                       </span>
                     ))}
                   </div>
@@ -78,24 +135,20 @@ export default function UserTicketsPage() {
 
                 <div className="space-y-2 text-sm text-gray-200">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    {bk.cinema}
-                  </div>
-                  <div className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-gray-400" />
-                    {bk.createdAt}
+                    Tổng: {bk.totalAmount.toFixed(0)} VND
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock3 className="h-4 w-4 text-gray-400" />
-                    Showtime: {bk.showtime}
+                    Vé: {(bk.tickets || []).length}
                   </div>
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 text-gray-400" />
-                    Amount: ${bk.amount.toFixed(2)}
+                    Thanh toán: {bk.paymentMethod || "N/A"}
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-gray-400" />
-                    {bk.status === "PAID" ? "QR ready at cinema" : "Complete payment at counter"}
+                    {bk.status === "Paid" ? "QR ready at cinema" : "Hoàn tất thanh toán tại quầy"}
                   </div>
                 </div>
               </div>
@@ -103,7 +156,7 @@ export default function UserTicketsPage() {
           </div>
 
           <p className="mt-4 text-xs text-gray-400">
-            Mock data only. Connect to `/bookings/me` once your NestJS backend is wired.
+            Data is live from `/bookings/me`. Vui lòng đăng nhập để xem dữ liệu của bạn.
           </p>
         </div>
       </main>

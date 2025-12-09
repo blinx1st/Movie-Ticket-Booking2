@@ -29,6 +29,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         _id: res.data?.user?._id,
                         name: res.data?.user?.name,
                         email: res.data?.user?.email,
+                        phone: (res.data as any)?.user?.phone,
                         access_token: res.data?.access_token
                     }
                 }
@@ -51,11 +52,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         jwt({ token, user }) {
             if (user) { // User is available during sign-in
                 token.user = (user as IUser);
+                (token as any).phone = (user as any).phone;
             }
             return token
         },
         session({ session, token }) {
             (session.user as IUser) = token.user
+            ;(session.user as any).phone = (token as any).phone;
             return session
         },
         // authorized: async ({ auth }) => {

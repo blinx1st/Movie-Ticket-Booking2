@@ -8,11 +8,17 @@ export class Showtime {
   @Column()
   movieId: number;
 
+  @Column()
+  cinemaId: number;
+
   @Column({ nullable: true })
   cinema?: string;
 
   @Column({ nullable: true })
   city?: string;
+
+  @Column()
+  roomId: number;
 
   @Column('json')
   times: string[];

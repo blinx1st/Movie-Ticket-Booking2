@@ -5,28 +5,36 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { message } from "antd";
 import { sendRequest } from "@/utils/api";
-import { Plus, Calendar, Pencil, Trash2, Clock, DollarSign, Film, X, Save, MapPin } from "lucide-react";
+import { Plus, Calendar, Pencil, Trash2, Clock, DollarSign, Film, X, Save, MapPin, Building2 } from "lucide-react";
 
 type Movie = { id: number; title: string };
+type Cinema = { id: number; name: string };
+type Room = { id: number; name: string; cinemaId?: number; type?: string; capacity?: number };
 type Showtime = {
   id: number;
   movieId: number;
+  cinemaId: number;
   cinema?: string;
   city?: string;
+  roomId?: number;
   times: string[];
   startTime: string;
   price: number;
+  room?: string;
 };
 
 export default function ShowtimesPage() {
   const { data: session } = useSession();
   const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [cinemas, setCinemas] = useState<Cinema[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     movieId: "",
-    cinema: "",
+    cinemaId: "",
+    roomId: "",
     city: "",
     timesText: "",
     startTime: "",
@@ -55,6 +63,31 @@ export default function ShowtimesPage() {
     }
   };
 
+  const fetchCinemas = async () => {
+    try {
+      const res = await sendRequest<IBackendRes<Cinema[]>>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cinemas`,
+        method: "GET",
+      });
+      if (Array.isArray(res?.data)) setCinemas(res.data);
+    } catch {
+      setCinemas([]);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const res = await sendRequest<IBackendRes<Room[]>>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cinema-rooms`,
+        method: "GET",
+        headers,
+      });
+      if (Array.isArray(res?.data)) setRooms(res.data);
+    } catch {
+      setRooms([]);
+    }
+  };
+
   const fetchShowtimes = async () => {
     try {
       const res = await sendRequest<IBackendRes<Showtime[]>>({
@@ -70,6 +103,8 @@ export default function ShowtimesPage() {
 
   useEffect(() => {
     fetchMovies();
+    fetchCinemas();
+    fetchRooms();
   }, []);
 
   useEffect(() => {
@@ -81,27 +116,38 @@ export default function ShowtimesPage() {
     return movie ? movie.title : "Unknown Movie";
   };
 
+  const getCinemaName = (id: number | string | undefined) => {
+    const cinema = cinemas.find((c) => c.id.toString() === (id ?? "").toString());
+    return cinema ? cinema.name : "Unknown Cinema";
+  };
+
+  const getRoomName = (id: number | string | undefined) => {
+    const room = rooms.find((r) => r.id.toString() === (id ?? "").toString());
+    return room ? room.name : "No room";
+  };
+
   const openModal = (item?: Showtime) => {
     if (item) {
       setEditingId(item.id);
       setFormData({
         movieId: item.movieId.toString(),
-        cinema: item.cinema || "",
+        cinemaId: item.cinemaId?.toString() || "",
         city: item.city || "",
         timesText: item.times?.join(", ") || "",
         startTime: item.startTime ? item.startTime.slice(0, 16) : "",
         price: item.price?.toString() || "",
+        roomId: item.roomId?.toString() || "",
       });
     } else {
       setEditingId(null);
-      setFormData({ movieId: "", cinema: "", city: "", timesText: "", startTime: "", price: "" });
+      setFormData({ movieId: "", cinemaId: "", roomId: "", city: "", timesText: "", startTime: "", price: "" });
     }
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!formData.movieId || !formData.startTime || !formData.price) {
-      message.warning("Please fill Movie, Start Time and Price.");
+    if (!formData.movieId || !formData.cinemaId || !formData.roomId || !formData.startTime || !formData.price) {
+      message.warning("Please fill Movie, Cinema, Room, Start Time and Price.");
       return;
     }
     const times = formData.timesText
@@ -109,7 +155,8 @@ export default function ShowtimesPage() {
       : [];
     const payload = {
       movieId: Number(formData.movieId),
-      cinema: formData.cinema || undefined,
+      cinemaId: Number(formData.cinemaId),
+      roomId: Number(formData.roomId),
       city: formData.city || undefined,
       times,
       startTime: formData.startTime,
@@ -214,7 +261,7 @@ export default function ShowtimesPage() {
               <tr className="bg-gray-100 text-left dark:bg-gray-700">
                 <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm xl:pl-11">MOVIE</th>
                 <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">CINEMA</th>
-                <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">CITY</th>
+                <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">ROOM</th>
                 <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">TIMES</th>
                 <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">START TIME</th>
                 <th className="py-4 px-4 font-medium text-gray-500 uppercase text-sm">PRICE</th>
@@ -230,11 +277,11 @@ export default function ShowtimesPage() {
                     </td>
                     <td className="py-4 px-4">
                       <span className="inline-flex items-center gap-1 rounded-md bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold dark:bg-green-900/40 dark:text-green-100">
-                        <MapPin className="w-4 h-4" />{item.cinema || "N/A"}
+                        <MapPin className="w-4 h-4" />{getCinemaName(item.cinemaId)}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <p className="text-black dark:text-white text-sm">{item.city || "N/A"}</p>
+                    <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-200">
+                      {getRoomName(item.roomId)}
                     </td>
                     <td className="py-4 px-4">
                       <p className="text-xs text-gray-500 dark:text-gray-300">
@@ -261,7 +308,7 @@ export default function ShowtimesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-10 text-gray-500">No showtimes found. Create one!</td>
+                  <td colSpan={6} className="text-center py-10 text-gray-500">No showtimes found. Create one!</td>
                 </tr>
               )}
             </tbody>
@@ -300,25 +347,44 @@ export default function ShowtimesPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-black dark:text-white">Cinema</label>
-                        <input
-                          type="text"
-                          className="w-full rounded border border-stroke bg-transparent py-3 px-5 font-medium outline-none transition focus:border-blue-500 active:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                          value={formData.cinema}
-                          onChange={(e) => setFormData({ ...formData, cinema: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-black dark:text-white">City</label>
-                        <input
-                          type="text"
-                          className="w-full rounded border border-stroke bg-transparent py-3 px-5 font-medium outline-none transition focus:border-blue-500 active:border-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                          value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        />
-                      </div>
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-black dark:text-white">Select Cinema</label>
+                        <div className="relative">
+                            <select 
+                                className="w-full rounded border border-stroke bg-transparent py-3 px-10 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 appearance-none"
+                                value={formData.cinemaId}
+                                onChange={(e) => setFormData({...formData, cinemaId: e.target.value, roomId: ""})}
+                            >
+                                <option value="" disabled>-- Choose a cinema --</option>
+                                {cinemas.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                            <Building2 className="absolute left-3 top-3.5 w-5 h-5 text-gray-500"/>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-black dark:text-white">Select Room</label>
+                        <div className="relative">
+                            <select 
+                                className="w-full rounded border border-stroke bg-transparent py-3 px-10 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 appearance-none"
+                                value={formData.roomId}
+                                onChange={(e) => setFormData({...formData, roomId: e.target.value})}
+                            >
+                                <option value="" disabled>-- Choose a room --</option>
+                                {(formData.cinemaId 
+                                  ? rooms.filter(r => (r.cinemaId ?? "").toString() === formData.cinemaId)
+                                  : rooms
+                                ).map(r => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </select>
+                            <Building2 className="absolute left-3 top-3.5 w-5 h-5 text-gray-500"/>
+                        </div>
+                        {formData.cinemaId === "" && (
+                          <p className="mt-1 text-xs text-gray-500">Select cinema to filter rooms.</p>
+                        )}
                     </div>
 
                     <div>

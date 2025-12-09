@@ -79,28 +79,29 @@ export default function AppSidebar() {
           </div>
 
           {/* Nhóm 2: Content */}
-          <div>
-            <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Content Management</h3>
-            <ul className="space-y-1">
-              {[
-                { name: "Movies", path: "/admin/movies", icon: Film },
-                { name: "Screens", path: "/admin/screens", icon: Monitor },
-                { name: "Showtimes", path: "/admin/showtimes", icon: Calendar }
-              ].map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.path}
-                    className={`group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium transition-colors ${
-                      isActive(item.path) ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                    }`}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+              <div>
+                <h3 className="mb-2 ml-4 text-xs font-semibold uppercase text-gray-400">Content Management</h3>
+                <ul className="space-y-1">
+                  {[
+                    { name: "Movies", path: "/admin/movies", icon: Film },
+                    { name: "Cinemas", path: "/admin/cinemas", icon: Monitor },
+                    { name: "Screens", path: "/admin/screens", icon: Monitor },
+                    { name: "Showtimes", path: "/admin/showtimes", icon: Calendar }
+                  ].map((item) => (
+                    <li key={item.name}>
+                      <Link
+                        href={item.path}
+                        className={`group flex items-center gap-2.5 rounded-lg py-2.5 px-4 font-medium transition-colors ${
+                          isActive(item.path) ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {item.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
           {/* Nhóm 3: Business */}
           <div>

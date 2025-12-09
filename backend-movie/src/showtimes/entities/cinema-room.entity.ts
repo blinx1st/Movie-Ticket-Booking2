@@ -8,6 +8,9 @@ export class CinemaRoom {
   @Column()
   name: string;
 
+  @Column({ nullable: true })
+  cinemaId?: number;
+
   @Column({ default: '2D' })
   type: string;
 

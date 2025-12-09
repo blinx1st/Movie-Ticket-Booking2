@@ -26,6 +26,8 @@ import { SeatsModule } from './seats/seats.module';
 import { RevenueModule } from './revenue/revenue.module';
 import { ShowtimesModule } from './showtimes/showtimes.module';
 import { CinemaRoomsModule } from './screens/cinema-room.module';
+import { CinemasModule } from './cinemas/cinemas.module';
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
@@ -77,7 +79,7 @@ import { CinemaRoomsModule } from './screens/cinema-room.module';
           adapter: new HandlebarsAdapter(),
           options: {
             strict: true,
-          }
+          },
         },
       }),
       inject: [ConfigService],
@@ -93,7 +95,8 @@ import { CinemaRoomsModule } from './screens/cinema-room.module';
     RevenueModule,
     ShowtimesModule,
     CinemaRoomsModule,
-    ShowtimesModule,
+    CinemasModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -111,4 +114,4 @@ import { CinemaRoomsModule } from './screens/cinema-room.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

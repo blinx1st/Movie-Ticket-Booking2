@@ -17,9 +17,12 @@ export class BookSeatDto {
   @IsNumber()
   movieId: number;
 
-  @ApiProperty({ example: [1, 2], description: 'Danh sách ID ghế muốn đặt', type: [Number] })
+  @ApiProperty({
+    example: [1, 2],
+    description: 'Danh sách ID ghế muốn đặt',
+    type: [Number],
+  })
   @IsArray()
   @IsNotEmpty()
   seatIds: number[];
 }
-

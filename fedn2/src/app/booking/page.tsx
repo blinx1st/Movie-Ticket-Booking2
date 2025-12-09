@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Armchair,
   CalendarDays,
@@ -16,126 +17,47 @@ import {
   Star,
   Ticket,
   Wallet,
+  Building2,
 } from "lucide-react";
+import { message } from "antd";
+import { sendRequest } from "@/utils/api";
 
 type Movie = {
-  id: string;
+  id: number;
   title: string;
+  slug: string;
   genre: string;
-  duration: string;
+  durationMinutes: number;
   rating: number;
-  poster: string;
-  format: "2D" | "3D" | "IMAX" | "4DX";
+  posterUrl: string;
+  format: string;
 };
 
 type Cinema = {
-  id: string;
+  id: number;
   name: string;
-  address: string;
-  city: string;
+  address?: string;
+  city?: string;
 };
 
 type Showtime = {
-  id: string;
-  movieId: string;
-  cinemaId: string;
+  id: number;
+  movieId: number;
+  cinemaId: number;
   startTime: string;
-  format: Movie["format"];
-  basePrice: number;
-  heldSeats: string[];
-  soldSeats: string[];
+  price: number;
+  times?: string[];
 };
 
-const movies: Movie[] = [
-  {
-    id: "echo",
-    title: "Echoes of Tomorrow",
-    genre: "Sci-Fi · Thriller",
-    duration: "128m",
-    rating: 8.8,
-    poster:
-      "https://images.unsplash.com/photo-1505682634904-d7c8d95cdc50?auto=format&fit=crop&w=900&q=80",
-    format: "IMAX",
-  },
-  {
-    id: "solstice",
-    title: "Solstice Run",
-    genre: "Action · Adventure",
-    duration: "114m",
-    rating: 8.2,
-    poster:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80",
-    format: "4DX",
-  },
-  {
-    id: "harbor",
-    title: "Lumin Harbor",
-    genre: "Drama · Mystery",
-    duration: "102m",
-    rating: 8.5,
-    poster:
-      "https://images.unsplash.com/photo-1509347528160-9a9e33742cd4?auto=format&fit=crop&w=900&q=80",
-    format: "2D",
-  },
-];
+type SeatStatus = {
+  id: number;
+  row: string;
+  number: number;
+  type: string;
+  isBooked?: boolean;
+};
 
-const cinemas: Cinema[] = [
-  { id: "galaxy", name: "Galaxy Central", address: "12 Nguyen Hue", city: "HCMC" },
-  { id: "aurora", name: "Aurora Riverside", address: "25 Bach Dang", city: "Da Nang" },
-  { id: "skyline", name: "Skyline Midtown", address: "88 Le Loi", city: "HCMC" },
-];
-
-const showtimes: Showtime[] = [
-  {
-    id: "st1",
-    movieId: "echo",
-    cinemaId: "galaxy",
-    startTime: "2025-12-10T18:30:00Z",
-    format: "IMAX",
-    basePrice: 11.5,
-    heldSeats: ["B3", "B4", "D6"],
-    soldSeats: ["A1", "A2", "C5"],
-  },
-  {
-    id: "st2",
-    movieId: "solstice",
-    cinemaId: "galaxy",
-    startTime: "2025-12-10T20:10:00Z",
-    format: "4DX",
-    basePrice: 10.2,
-    heldSeats: ["C4", "C5"],
-    soldSeats: ["A5", "A6", "D1"],
-  },
-  {
-    id: "st3",
-    movieId: "harbor",
-    cinemaId: "aurora",
-    startTime: "2025-12-11T19:15:00Z",
-    format: "2D",
-    basePrice: 8.4,
-    heldSeats: ["B2", "B3"],
-    soldSeats: ["C2", "C3", "D4"],
-  },
-  {
-    id: "st4",
-    movieId: "echo",
-    cinemaId: "skyline",
-    startTime: "2025-12-11T21:00:00Z",
-    format: "IMAX",
-    basePrice: 11.5,
-    heldSeats: ["A7"],
-    soldSeats: ["B1", "B2", "B3"],
-  },
-];
-
-const seatLayout = [
-  { row: "A", seats: 8 },
-  { row: "B", seats: 8 },
-  { row: "C", seats: 8 },
-  { row: "D", seats: 8 },
-];
-
-const formatMultiplier: Record<Movie["format"], number> = {
+const formatMultiplier: Record<string, number> = {
   "2D": 1,
   "3D": 1.15,
   IMAX: 1.35,
@@ -143,60 +65,188 @@ const formatMultiplier: Record<Movie["format"], number> = {
 };
 
 export default function BookingPage() {
-  const [selectedMovie, setSelectedMovie] = useState<Movie["id"]>(movies[0].id);
-  const [selectedCinema, setSelectedCinema] = useState<Cinema["id"]>(cinemas[0].id);
-  const [selectedShowtime, setSelectedShowtime] = useState<Showtime["id"] | null>(null);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const { data: session } = useSession();
+
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [cinemas, setCinemas] = useState<Cinema[]>([]);
+  const [showtimes, setShowtimes] = useState<Showtime[]>([]);
+  const [seats, setSeats] = useState<SeatStatus[]>([]);
+
+  const [selectedMovie, setSelectedMovie] = useState<number | null>(null);
+  const [selectedCinema, setSelectedCinema] = useState<number | null>(null);
+  const [selectedShowtime, setSelectedShowtime] = useState<number | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
+
+  const [loading, setLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
   const [paid, setPaid] = useState(false);
 
-  const filteredShowtimes = useMemo(
-    () =>
-      showtimes.filter(
-        (st) => st.movieId === selectedMovie && st.cinemaId === selectedCinema,
-      ),
-    [selectedCinema, selectedMovie],
-  );
+  const userId = useMemo(() => {
+    const uid = (session?.user as any)?._id;
+    return uid ? Number(uid) : 1; // fallback mock user
+  }, [session]);
 
+  // Fetch base data
   useEffect(() => {
-    if (filteredShowtimes.length === 0) {
-      setSelectedShowtime(null);
-      setSelectedSeats([]);
-      return;
-    }
-    if (!filteredShowtimes.find((st) => st.id === selectedShowtime)) {
-      setSelectedShowtime(filteredShowtimes[0].id);
-      setSelectedSeats([]);
-    }
-  }, [filteredShowtimes, selectedShowtime]);
+    const loadInitial = async () => {
+      setLoading(true);
+      try {
+        const [moviesRes, cinemasRes] = await Promise.all([
+          sendRequest<IBackendRes<Movie[]>>({
+            url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/movies`,
+            method: "GET",
+            queryParams: { status: "Now Showing" },
+          }),
+          sendRequest<IBackendRes<Cinema[]>>({
+            url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cinemas`,
+            method: "GET",
+          }),
+        ]);
+        if (Array.isArray(moviesRes?.data)) setMovies(moviesRes.data);
+        if (Array.isArray(cinemasRes?.data)) setCinemas(cinemasRes.data);
+        if (moviesRes?.data?.[0]) setSelectedMovie(moviesRes.data[0].id);
+        if (cinemasRes?.data?.[0]) setSelectedCinema(cinemasRes.data[0].id);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitial();
+  }, []);
+
+  // Fetch showtimes when movie/cinema changes
+  useEffect(() => {
+    const fetchShowtimes = async () => {
+      if (!selectedMovie || !selectedCinema) return;
+      try {
+        const res = await sendRequest<IBackendRes<Showtime[]>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/showtimes`,
+          method: "GET",
+          queryParams: { movieId: selectedMovie, cinemaId: selectedCinema },
+        });
+        let list: Showtime[] = Array.isArray(res?.data) ? res.data : [];
+        if (list.length === 0) {
+          const resMovieOnly = await sendRequest<IBackendRes<Showtime[]>>({
+            url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/showtimes`,
+            method: "GET",
+            queryParams: { movieId: selectedMovie },
+          });
+          if (Array.isArray(resMovieOnly?.data)) list = resMovieOnly.data;
+        }
+        setShowtimes(list);
+        if (!list.find((st) => st.id === selectedShowtime)) {
+          setSelectedShowtime(list[0]?.id ?? null);
+          setSelectedSeats([]);
+        }
+      } catch {
+        setShowtimes([]);
+        setSelectedShowtime(null);
+        setSelectedSeats([]);
+      }
+    };
+    fetchShowtimes();
+  }, [selectedMovie, selectedCinema]);
+
+  // Fetch seats when showtime changes
+  useEffect(() => {
+    const fetchSeats = async () => {
+      if (!selectedShowtime) {
+        setSeats([]);
+        return;
+      }
+      try {
+        const res = await sendRequest<IBackendRes<SeatStatus[]>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seats/status`,
+          method: "GET",
+          queryParams: { showtimeId: selectedShowtime },
+        });
+        if (Array.isArray(res?.data)) {
+          setSeats(res.data);
+        } else {
+          setSeats([]);
+        }
+      } catch {
+        setSeats([]);
+      }
+    };
+    fetchSeats();
+  }, [selectedShowtime]);
 
   const currentShowtime = showtimes.find((st) => st.id === selectedShowtime) ?? null;
-  const currentMovie = movies.find((m) => m.id === selectedMovie)!;
-  const currentCinema = cinemas.find((c) => c.id === selectedCinema)!;
+  const currentMovie = movies.find((m) => m.id === selectedMovie);
+  const currentCinema = cinemas.find((c) => c.id === selectedCinema);
 
-  const basePrice = currentShowtime?.basePrice ?? 0;
-  const multiplier = currentShowtime ? formatMultiplier[currentShowtime.format] : 1;
+  const basePrice = Number(currentShowtime?.price ?? 0);
+  const multiplier = currentMovie ? formatMultiplier[currentMovie.format] ?? 1 : 1;
   const total = selectedSeats.length * basePrice * multiplier;
 
-  const toggleSeat = (seat: string) => {
-    if (!currentShowtime) return;
-    const isHeld = currentShowtime.heldSeats.includes(seat);
-    const isSold = currentShowtime.soldSeats.includes(seat);
-    if (isHeld || isSold) return;
+  const toggleSeat = (seatId: number) => {
+    const seat = seats.find((s) => s.id === seatId);
+    if (!seat) return;
+    if (seat.isBooked) return;
     setSelectedSeats((prev) =>
-      prev.includes(seat) ? prev.filter((s) => s !== seat) : [...prev, seat],
+      prev.includes(seatId) ? prev.filter((s) => s !== seatId) : [...prev, seatId],
     );
   };
 
-  const proceedToPayment = () => {
-    setStep(5);
+  const proceedToPayment = async () => {
+    if (!currentShowtime || !currentMovie) return;
+    if (selectedSeats.length === 0) {
+      message.warning("Please select seats");
+      return;
+    }
     setIsPaying(true);
-    setTimeout(() => {
-      setIsPaying(false);
+    try {
+      await sendRequest({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/checkout`,
+        method: "POST",
+        body: {
+          userId,
+          showtimeId: currentShowtime.id,
+          movieId: currentMovie.id,
+          seatIds: selectedSeats,
+          paymentMethod: "Mock",
+        },
+      });
+      message.success("Payment success & seats booked");
       setPaid(true);
-    }, 1400);
+      setSelectedSeats([]);
+      // refresh seats status
+      const res = await sendRequest<IBackendRes<SeatStatus[]>>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seats/status`,
+        method: "GET",
+        queryParams: { showtimeId: currentShowtime.id },
+      });
+      if (Array.isArray(res?.data)) setSeats(res.data);
+    } catch (err: any) {
+      message.error(err?.message || "Booking failed");
+    } finally {
+      setIsPaying(false);
+    }
   };
+
+  const seatLabel = (seat: SeatStatus) => `${seat.row}${seat.number}`;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050916] text-white flex items-center justify-center">
+        <p className="text-lg text-slate-200">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!currentMovie || !currentCinema) {
+    return (
+      <div className="min-h-screen bg-[#050916] text-white flex items-center justify-center">
+        <p className="text-lg text-slate-200">Please add movies and cinemas first.</p>
+      </div>
+    );
+  }
+
+  const filteredShowtimes = showtimes.filter((st) => {
+    if (!st.movieId || st.movieId !== currentMovie.id) return false;
+    if (st.cinemaId && currentCinema.id) return st.cinemaId === currentCinema.id;
+    return true; // nếu showtime chưa có cinemaId (dữ liệu cũ) vẫn hiển thị
+  });
 
   return (
     <div className="min-h-screen bg-[#050916] text-white">
@@ -241,24 +291,23 @@ export default function BookingPage() {
               Pick the movie, lock your seats, scan the QR. Done.
             </h1>
             <p className="text-lg text-slate-200/90">
-              Real-time seat state (available / held / sold), dynamic pricing by format, and a
-              mock QR payment for a full booking demo.
+              Real-time seat state, dynamic pricing by format, and a mock payment for a full booking demo.
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-slate-200/90">
               <span className="rounded-full bg-white/10 px-3 py-2 ring-1 ring-white/10">
                 JWT-ready flow
               </span>
               <span className="rounded-full bg-white/10 px-3 py-2 ring-1 ring-white/10">
-                React Query / Zustand friendly
+                API driven
               </span>
               <span className="rounded-full bg-white/10 px-3 py-2 ring-1 ring-white/10">
-                Seat hold logic stubbed
+                Seat lock logic simplified
               </span>
             </div>
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 ring-1 ring-white/10">
             <img
-              src={currentMovie.poster}
+              src={currentMovie.posterUrl}
               alt={currentMovie.title}
               className="h-64 w-full object-cover"
             />
@@ -270,7 +319,7 @@ export default function BookingPage() {
               </div>
               <span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-amber-200">
                 <Star className="h-4 w-4" />
-                {currentMovie.rating.toFixed(1)}
+                {(currentMovie.rating ?? 0).toFixed(1)}
               </span>
             </div>
           </div>
@@ -283,18 +332,16 @@ export default function BookingPage() {
               Booking steps
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              {[1, 2, 3, 4, 5].map((idx) => (
+              {["Movie", "Cinema", "Showtime", "Seats", "Payment"].map((label, idx) => (
                 <span
-                  key={idx}
+                  key={label}
                   className={`rounded-full px-3 py-1 font-semibold ${
-                    step === idx ? "bg-indigo-500 text-white" : "bg-white/10 text-slate-300"
+                    idx + 1 === (selectedShowtime ? (selectedSeats.length > 0 ? 4 : 3) : 2)
+                      ? "bg-indigo-500 text-white"
+                      : "bg-white/10 text-slate-300"
                   }`}
                 >
-                  {idx === 1 && "Movie"}
-                  {idx === 2 && "Cinema"}
-                  {idx === 3 && "Showtime"}
-                  {idx === 4 && "Seats"}
-                  {idx === 5 && "Payment"}
+                  {label}
                 </span>
               ))}
             </div>
@@ -309,7 +356,8 @@ export default function BookingPage() {
                     key={movie.id}
                     onClick={() => {
                       setSelectedMovie(movie.id);
-                      setStep(2);
+                      setSelectedShowtime(null);
+                      setSelectedSeats([]);
                     }}
                     className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
                       movie.id === selectedMovie
@@ -318,7 +366,7 @@ export default function BookingPage() {
                     }`}
                   >
                     <img
-                      src={movie.poster}
+                      src={movie.posterUrl}
                       alt={movie.title}
                       className="h-12 w-12 rounded-lg object-cover"
                     />
@@ -339,7 +387,8 @@ export default function BookingPage() {
                     key={cinema.id}
                     onClick={() => {
                       setSelectedCinema(cinema.id);
-                      setStep(3);
+                      setSelectedShowtime(null);
+                      setSelectedSeats([]);
                     }}
                     className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
                       cinema.id === selectedCinema
@@ -374,7 +423,7 @@ export default function BookingPage() {
                       onClick={() => {
                         setSelectedShowtime(st.id);
                         setSelectedSeats([]);
-                        setStep(4);
+                        setPaid(false);
                       }}
                       className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left transition ${
                         st.id === selectedShowtime
@@ -384,11 +433,11 @@ export default function BookingPage() {
                     >
                       <div>
                         <p className="text-sm font-semibold">
-                          {start.toLocaleDateString()} ·{" "}
+                          {start.toLocaleDateString()} •{" "}
                           {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {st.format} · Base ${st.basePrice.toFixed(2)}
+                          Base {Number(st?.price ?? 0).toFixed(0)} VND
                         </p>
                       </div>
                       <Clock3 className="h-4 w-4 text-indigo-200" />
@@ -417,10 +466,6 @@ export default function BookingPage() {
                   Free
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-4 rounded bg-amber-500/50 ring-1 ring-amber-200/60" />
-                  Held
-                </span>
-                <span className="flex items-center gap-1">
                   <span className="inline-block h-3 w-4 rounded bg-slate-700 ring-1 ring-slate-500" />
                   Sold
                 </span>
@@ -434,38 +479,38 @@ export default function BookingPage() {
               <div className="mb-6 h-1 rounded-full bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent blur-[2px]" />
 
               <div className="space-y-3">
-                {seatLayout.map((row) => (
-                  <div key={row.row} className="flex items-center justify-center gap-2">
-                    <span className="w-6 text-right text-xs text-slate-500">{row.row}</span>
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-                      {Array.from({ length: row.seats }, (_, i) => `${row.row}${i + 1}`).map(
-                        (seat) => {
-                          const isHeld = currentShowtime?.heldSeats.includes(seat);
-                          const isSold = currentShowtime?.soldSeats.includes(seat);
-                          const isSelected = selectedSeats.includes(seat);
+                {[...new Set(seats.map((s) => s.row))].map((row) => {
+                  const rowSeats = seats
+                    .filter((s) => s.row === row)
+                    .sort((a, b) => a.number - b.number);
+                  return (
+                    <div key={row} className="flex items-center justify-center gap-2">
+                      <span className="w-6 text-right text-xs text-slate-500">{row}</span>
+                      <div className="grid grid-cols-8 gap-2">
+                        {rowSeats.map((seat) => {
+                          const isSold = !!seat.isBooked;
+                          const isSelected = selectedSeats.includes(seat.id);
                           return (
                             <button
-                              key={seat}
-                              disabled={isHeld || isSold}
-                              onClick={() => toggleSeat(seat)}
+                              key={seat.id}
+                              disabled={isSold}
+                              onClick={() => toggleSeat(seat.id)}
                               className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition ${
                                 isSold
                                   ? "cursor-not-allowed bg-slate-700 text-slate-400 ring-1 ring-slate-500"
-                                  : isHeld
-                                  ? "cursor-not-allowed bg-amber-500/60 text-white ring-1 ring-amber-200/70"
                                   : isSelected
                                   ? "bg-indigo-500/70 text-white ring-1 ring-indigo-200/70"
                                   : "bg-white/5 text-slate-200 ring-1 ring-white/10 hover:bg-white/10 hover:text-white"
                               }`}
                             >
-                              {seat}
+                              {seatLabel(seat)}
                             </button>
                           );
-                        },
-                      )}
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -487,11 +532,11 @@ export default function BookingPage() {
                   <div>
                     <p className="font-semibold text-white">{currentMovie.title}</p>
                     <p className="text-xs text-slate-400">
-                      {currentMovie.genre} · {currentMovie.duration}
+                      {currentMovie.genre} • {currentMovie.durationMinutes}m
                     </p>
                   </div>
                   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-100">
-                    {currentShowtime?.format ?? "Format"}
+                    {currentMovie.format}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -508,11 +553,19 @@ export default function BookingPage() {
                 <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4 space-y-2 text-xs text-slate-300">
                   <div className="flex items-center justify-between">
                     <span>Seats</span>
-                    <span>{selectedSeats.length ? selectedSeats.join(", ") : "None"}</span>
+                    <span>
+                      {selectedSeats.length
+                        ? selectedSeats
+                            .map((id) => seats.find((s) => s.id === id))
+                            .filter(Boolean)
+                            .map((s) => seatLabel(s as SeatStatus))
+                            .join(", ")
+                        : "None"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Base price</span>
-                    <span>${basePrice.toFixed(2)} x {selectedSeats.length || 1}</span>
+                    <span>{basePrice.toFixed(0)} VND x {selectedSeats.length || 1}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Format multiplier</span>
@@ -520,11 +573,11 @@ export default function BookingPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Convenience</span>
-                    <span>$1.20</span>
+                    <span>12000 VND</span>
                   </div>
                   <div className="flex items-center justify-between text-base font-semibold text-white pt-2">
                     <span>Total</span>
-                    <span>${(total + 1.2).toFixed(2)}</span>
+                    <span>{(total + 12000).toFixed(0)} VND</span>
                   </div>
                 </div>
 
@@ -537,7 +590,7 @@ export default function BookingPage() {
                   {isPaying ? "Processing..." : "Confirm & Pay"}
                 </button>
                 <p className="text-xs text-slate-500">
-                  Payment is mocked (QR). In production integrate with your NestJS `/payments/intent` and `/payments/confirm`.
+                  Payment is mocked. In production integrate with backend payments and seat holds.
                 </p>
               </div>
             </div>
@@ -545,7 +598,7 @@ export default function BookingPage() {
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/30 to-slate-950 p-5 ring-1 ring-white/10">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-indigo-100">
                 <ShieldCheck className="h-4 w-4" />
-                Payment (mock QR)
+                Payment (mock)
               </div>
               <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 p-6 text-center">
                 <div className="grid h-36 w-36 place-items-center rounded-xl bg-white text-black font-semibold">
@@ -554,7 +607,7 @@ export default function BookingPage() {
                 {paid ? (
                   <div className="flex items-center gap-2 text-emerald-300 text-sm font-semibold">
                     <CheckCircle2 className="h-4 w-4" />
-                    Payment success — seats locked
+                    Payment success • seats locked
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">

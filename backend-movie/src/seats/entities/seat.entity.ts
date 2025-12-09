@@ -11,6 +11,9 @@ export class Seat {
   @Column()
   number: number; // Số 1, 2, 3
 
+  @Column({ nullable: true })
+  roomId?: number;
+
   @Column({ default: 'Standard' })
   type: string; // VIP, Standard
 }

@@ -1,6 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
-import { CreateShowtimeDto, UpdateShowtimeDto } from './dto/create-showtime.dto';
+import {
+  CreateShowtimeDto,
+  UpdateShowtimeDto,
+} from './dto/create-showtime.dto';
 import { ShowtimesService } from './showtimes.service';
 
 @Controller('showtimes')
@@ -14,8 +26,16 @@ export class ShowtimesController {
 
   @Get()
   @Public()
-  findAll(@Query('movieId') movieId?: string) {
-    return this.showtimesService.findAll(movieId ? +movieId : undefined);
+  findAll(
+    @Query('movieId') movieId?: string,
+    @Query('cinemaId') cinemaId?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.showtimesService.findAll(
+      movieId ? +movieId : undefined,
+      cinemaId ? +cinemaId : undefined,
+      date,
+    );
   }
 
   @Get(':id')

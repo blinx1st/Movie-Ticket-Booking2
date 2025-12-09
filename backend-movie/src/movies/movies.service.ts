@@ -15,13 +15,20 @@ export class MoviesService {
   ) {}
 
   async create(createMovieDto: CreateMovieDto) {
-    const slug = createMovieDto.slug || this.buildSlug(createMovieDto.title);
-    const movie = this.movieRepository.create({ ...createMovieDto, slug } as any);
+    const baseSlug =
+      createMovieDto.slug || this.buildSlug(createMovieDto.title);
+    const slug = await this.ensureUniqueSlug(baseSlug);
+    const movie = this.movieRepository.create({
+      ...createMovieDto,
+      slug,
+    } as any);
     return this.movieRepository.save(movie);
   }
 
   async findAll(status?: string, limit?: number, page?: number) {
-    const qb = this.movieRepository.createQueryBuilder('movie').orderBy('movie.id', 'DESC');
+    const qb = this.movieRepository
+      .createQueryBuilder('movie')
+      .orderBy('movie.id', 'DESC');
     if (status) qb.andWhere('movie.status = :status', { status });
     if (limit) {
       qb.take(limit);
@@ -44,7 +51,10 @@ export class MoviesService {
   async update(id: number, updateMovieDto: UpdateMovieDto) {
     const movie = await this.movieRepository.findOne({ where: { id } });
     if (!movie) throw new NotFoundException('Movie not found');
-    const slug = updateMovieDto.slug || this.buildSlug(updateMovieDto.title || movie.title);
+    const baseSlug =
+      updateMovieDto.slug ||
+      this.buildSlug(updateMovieDto.title || movie.title);
+    const slug = await this.ensureUniqueSlug(baseSlug, movie.id);
     this.movieRepository.merge(movie, { ...updateMovieDto, slug } as any);
     return this.movieRepository.save(movie);
   }
@@ -63,5 +73,23 @@ export class MoviesService {
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
+  }
+
+  private async ensureUniqueSlug(
+    base: string,
+    ignoreId?: number,
+  ): Promise<string> {
+    let slug = base;
+    let counter = 1;
+    while (true) {
+      const existing = await this.movieRepository.findOne({
+        where: { slug },
+      });
+      if (!existing || (ignoreId && existing.id === ignoreId)) {
+        return slug;
+      }
+      counter += 1;
+      slug = `${base}-${counter}`;
+    }
   }
 }

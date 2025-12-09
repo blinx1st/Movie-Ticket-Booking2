@@ -13,7 +13,7 @@ import { CinemaRoomsService } from './cinema-room.service';
 
 @Controller('cinema-rooms')
 export class CinemaRoomsController {
-  constructor(private readonly cinemaRoomsService: CinemaRoomsService) { }
+  constructor(private readonly cinemaRoomsService: CinemaRoomsService) {}
 
   @Post()
   create(@Body() createDto: CreateCinemaRoomDto) {
@@ -31,10 +31,7 @@ export class CinemaRoomsController {
   }
 
   @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateCinemaRoomDto,
-  ) {
+  update(@Param('id') id: string, @Body() updateDto: UpdateCinemaRoomDto) {
     return this.cinemaRoomsService.update(+id, updateDto);
   }
 

@@ -10,11 +10,12 @@ export class CinemaRoomsService {
   constructor(
     @InjectRepository(CinemaRoom)
     private readonly cinemaRoomsRepository: Repository<CinemaRoom>,
-  ) { }
+  ) {}
 
   async create(createDto: CreateCinemaRoomDto): Promise<CinemaRoom> {
     const room = this.cinemaRoomsRepository.create({
       name: createDto.name,
+      cinemaId: createDto.cinemaId,
       type: createDto.type ?? '2D (Phổ thông)',
       capacity: createDto.capacity ?? 0,
     });

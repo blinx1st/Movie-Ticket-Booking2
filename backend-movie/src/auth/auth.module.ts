@@ -16,15 +16,16 @@ import { JwtStrategy } from './dto/passport/jwt.strategy';
         global: true,
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_ACCESS_TOKEN_EXPIRED') as any || '7d',
+          expiresIn:
+            (configService.get<string>('JWT_ACCESS_TOKEN_EXPIRED') as any) ||
+            '7d',
         },
       }),
       inject: [ConfigService],
-    }
-    ),
+    }),
     PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy]
+  providers: [AuthService, LocalStrategy, JwtStrategy],
 })
-export class AuthModule { }
+export class AuthModule {}

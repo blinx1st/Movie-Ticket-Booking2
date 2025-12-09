@@ -46,7 +46,7 @@ async function bootstrap() {
 
   // ✅ CORS cho Next.js (gộp cả 2 bên, ưu tiên cho FE ở http://localhost:3000)
   app.enableCors({
-    "origin": true,
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization',
     credentials: true,

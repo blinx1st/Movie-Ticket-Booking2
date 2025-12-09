@@ -35,7 +35,11 @@ export class MoviesController {
     @Query('limit') limit?: string,
     @Query('page') page?: string,
   ) {
-    return this.moviesService.findAll(status, limit ? +limit : undefined, page ? +page : undefined);
+    return this.moviesService.findAll(
+      status,
+      limit ? +limit : undefined,
+      page ? +page : undefined,
+    );
   }
 
   @Get(':slugOrId')
@@ -64,7 +68,8 @@ export class MoviesController {
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),

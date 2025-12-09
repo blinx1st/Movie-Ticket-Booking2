@@ -1,21 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './dto/passport/local-auth.guard';
 import { Public, ResponseMessage } from 'src/decorator/customize';
-import { ChangePasswordAuthDto, CodeAuthDto, CreateAuthDto } from './dto/create-auth.dto';
+import {
+  ChangePasswordAuthDto,
+  CodeAuthDto,
+  CreateAuthDto,
+} from './dto/create-auth.dto';
 import { MailerService } from '@nestjs-modules/mailer';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly mailerService: MailerService
-  ) { }
+    private readonly mailerService: MailerService,
+  ) {}
 
   @Post('login')
   @Public()
   @UseGuards(LocalAuthGuard)
-  @ResponseMessage("Fetch Login")
+  @ResponseMessage('Fetch Login')
   handleLogin(@Request() req) {
     return this.authService.login(req.user);
   }
@@ -40,13 +54,13 @@ export class AuthController {
 
   @Post('retry-active')
   @Public()
-  retryActive(@Body("email") email: string) {
+  retryActive(@Body('email') email: string) {
     return this.authService.retryActive(email);
   }
 
   @Post('retry-password')
   @Public()
-  retryPassword(@Body("email") email: string) {
+  retryPassword(@Body('email') email: string) {
     return this.authService.retryPassword(email);
   }
 
@@ -60,17 +74,16 @@ export class AuthController {
   @Public()
   // @UseGuards(JwtAuthGuard)
   getMail() {
-    this.mailerService
-      .sendMail({
-        to: 'blinx12c@gmail.com', // list of receivers
-        subject: 'Testing Nest MailerModule ✔', // Subject line
-        text: 'welcome', // plaintext body
-        template: "register", // HTML body content
-        context: {
-          name: "MovieWebApp",
-          activationCode: 123456789
-        }
-      })
-    return "Ok";
+    this.mailerService.sendMail({
+      to: 'blinx12c@gmail.com', // list of receivers
+      subject: 'Testing Nest MailerModule ✔', // Subject line
+      text: 'welcome', // plaintext body
+      template: 'register', // HTML body content
+      context: {
+        name: 'MovieWebApp',
+        activationCode: 123456789,
+      },
+    });
+    return 'Ok';
   }
 }
