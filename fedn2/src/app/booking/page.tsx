@@ -17,8 +17,11 @@ import {
   Star,
   Ticket,
   Wallet,
-  Building2,
+  CreditCard,
+  QrCode,
+  Banknote,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { message } from "antd";
 import { sendRequest } from "@/utils/api";
 
@@ -88,6 +91,20 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank">("card");
+  const [cardInfo, setCardInfo] = useState({
+    holder: "",
+    number: "",
+    expiry: "",
+    cvc: "",
+  });
+  const [bankInfo, setBankInfo] = useState({
+    bank: "VCB",
+    transactionId: "",
+  });
+  const [paymentRefState, setPaymentRefState] = useState("");
+  const [qrValue, setQrValue] = useState("");
+  const [bankQrReady, setBankQrReady] = useState(false);
 
   const userId = useMemo(() => {
     const uid = (session?.user as any)?._id || (session as any)?.user?.id;
@@ -186,14 +203,120 @@ export default function BookingPage() {
   const basePrice = Number(currentShowtime?.price ?? 0);
   const multiplier = currentMovie ? formatMultiplier[currentMovie.format] ?? 1 : 1;
   const total = selectedSeats.length * basePrice * multiplier;
+  const currentStep = useMemo(() => {
+    if (!selectedMovie) return 1;
+    if (!selectedCinema) return 2;
+    if (!selectedShowtime) return 3;
+    if (selectedSeats.length === 0) return 4;
+    if (!paid) return 5;
+    return 5;
+  }, [selectedMovie, selectedCinema, selectedShowtime, selectedSeats.length, paid]);
 
   const toggleSeat = (seatId: number) => {
     const seat = seats.find((s) => s.id === seatId);
     if (!seat) return;
     if (seat.isBooked) return;
+    setPaid(false);
+    setBankQrReady(false);
+    setQrValue("");
+    setPaymentRefState("");
     setSelectedSeats((prev) =>
       prev.includes(seatId) ? prev.filter((s) => s !== seatId) : [...prev, seatId],
     );
+  };
+
+  const buildPaymentRef = () => {
+    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (paymentMethod === "card") {
+      const last4 = cardInfo.number.replace(/\s+/g, "").slice(-4) || "CARD";
+      return `CARD-${last4}-${rand}`;
+    }
+    const tx = bankInfo.transactionId.trim() || "BANK";
+    return `BANK-${tx}-${rand}`;
+  };
+
+  const buildQrPayload = (paymentRef: string) => {
+    const seatLabels = selectedSeats
+      .map((id) => seats.find((s) => s.id === id))
+      .filter(Boolean)
+      .map((s) => seatLabel(s as SeatStatus))
+      .join(",");
+    const movieTitle = currentMovie?.title || "Movie";
+    const cinemaName = currentCinema?.name || "Cinema";
+    const time = currentShowtime
+      ? new Date(currentShowtime.startTime).toLocaleString()
+      : "";
+    return `MOVIEPAY|REF=${paymentRef}|AMOUNT=${total.toFixed(
+      0,
+    )}|MOVIE=${movieTitle}|CINEMA=${cinemaName}|TIME=${time}|SEATS=${seatLabels}`;
+  };
+
+  const validatePaymentDetails = () => {
+    if (paymentMethod === "card") {
+      if (!cardInfo.holder.trim()) return { ok: false, message: "Nhập tên chủ thẻ" };
+      const digits = cardInfo.number.replace(/\s+/g, "");
+      if (digits.length < 12 || digits.length > 19) {
+        return { ok: false, message: "Số thẻ không hợp lệ" };
+      }
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardInfo.expiry)) {
+        return { ok: false, message: "Hạn thẻ MM/YY" };
+      }
+      if (!/^[0-9]{3,4}$/.test(cardInfo.cvc)) {
+        return { ok: false, message: "CVC 3-4 số" };
+      }
+      return { ok: true };
+    }
+    if (!bankInfo.transactionId.trim()) {
+      return { ok: false, message: "Nhập mã giao dịch/biên lai" };
+    }
+    return { ok: true };
+  };
+
+  const simulateGatewayPayment = async () => {
+    const validation = validatePaymentDetails();
+    if (!validation.ok) {
+      message.warning(validation.message);
+      return null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return buildPaymentRef();
+  };
+
+  const finalizePayment = async (paymentRef: string, methodLabel: string) => {
+    const res = await sendRequest<IBackendRes<any>>({
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/checkout`,
+      method: "POST",
+      body: {
+        userId,
+        showtimeId: currentShowtime!.id,
+        movieId: currentMovie!.id,
+        seatIds: selectedSeats,
+        paymentMethod: methodLabel,
+        paymentRef,
+      },
+    });
+    if (!res?.data) {
+      throw new Error(res?.message || "Payment failed");
+    }
+    message.success("Payment success & seats booked");
+    setPaid(true);
+    setBankQrReady(false);
+    setQrValue("");
+    setPaymentRefState(paymentRef);
+    // Mark local seats as booked immediately
+    setSeats((prev) =>
+      prev.map((s) =>
+        selectedSeats.includes(s.id) ? { ...s, isBooked: true } : s,
+      ),
+    );
+    setSelectedSeats([]);
+    // refresh seats status from server
+    const resSeats = await sendRequest<IBackendRes<SeatStatus[]>>({
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seats/status`,
+      method: "GET",
+      queryParams: { showtimeId: currentShowtime!.id },
+    });
+    if (Array.isArray(resSeats?.data)) setSeats(resSeats.data);
   };
 
   const proceedToPayment = async () => {
@@ -208,33 +331,39 @@ export default function BookingPage() {
     }
     setIsPaying(true);
     try {
-      await sendRequest({
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/checkout`,
-        method: "POST",
-        body: {
-          userId,
-          showtimeId: currentShowtime.id,
-          movieId: currentMovie.id,
-          seatIds: selectedSeats,
-          paymentMethod: "Mock",
-        },
-      });
-      message.success("Payment success & seats booked");
-      setPaid(true);
-      // Mark local seats as booked immediately
-      setSeats((prev) =>
-        prev.map((s) =>
-          selectedSeats.includes(s.id) ? { ...s, isBooked: true } : s,
-        ),
-      );
-      setSelectedSeats([]);
-      // refresh seats status from server
-      const res = await sendRequest<IBackendRes<SeatStatus[]>>({
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/seats/status`,
-        method: "GET",
-        queryParams: { showtimeId: currentShowtime.id },
-      });
-      if (Array.isArray(res?.data)) setSeats(res.data);
+      if (paymentMethod === "bank") {
+        const paymentRef = buildPaymentRef();
+        const payload = buildQrPayload(paymentRef);
+        setPaymentRefState(paymentRef);
+        setQrValue(payload);
+        setBankQrReady(true);
+        message.info("Đã tạo mã QR, quét thanh toán rồi nhấn 'Xác nhận đã chuyển khoản'");
+        return;
+      }
+      const paymentRef = await simulateGatewayPayment();
+      if (!paymentRef) return;
+      setPaymentRefState(paymentRef);
+      await finalizePayment(paymentRef, "Card");
+    } catch (err: any) {
+      message.error(err?.message || "Booking failed");
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const confirmBankPayment = async () => {
+    if (!bankQrReady || !qrValue) {
+      message.warning("Tạo mã QR và quét trước khi xác nhận");
+      return;
+    }
+    if (!paymentRefState) {
+      message.warning("Thiếu mã tham chiếu thanh toán");
+      return;
+    }
+    if (!currentShowtime || !currentMovie) return;
+    setIsPaying(true);
+    try {
+      await finalizePayment(paymentRefState, "Bank transfer/QR");
     } catch (err: any) {
       message.error(err?.message || "Booking failed");
     } finally {
@@ -363,18 +492,24 @@ export default function BookingPage() {
               Booking steps
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              {["Movie", "Cinema", "Showtime", "Seats", "Payment"].map((label, idx) => (
-                <span
-                  key={label}
-                  className={`rounded-full px-3 py-1 font-semibold ${
-                    idx + 1 === (selectedShowtime ? (selectedSeats.length > 0 ? 4 : 3) : 2)
-                      ? "bg-indigo-500 text-white"
-                      : "bg-white/10 text-slate-300"
-                  }`}
-                >
-                  {label}
-                </span>
-              ))}
+              {["Movie", "Cinema", "Showtime", "Seats", "Payment"].map((label, idx) => {
+                const isDone = idx + 1 < currentStep;
+                const isActive = idx + 1 === currentStep;
+                return (
+                  <span
+                    key={label}
+                    className={`rounded-full px-3 py-1 font-semibold ${
+                      isActive
+                        ? "bg-indigo-500 text-white"
+                        : isDone
+                          ? "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/30"
+                          : "bg-white/10 text-slate-300"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
             </div>
           </div>
 
@@ -554,7 +689,7 @@ export default function BookingPage() {
                   Order summary
                 </div>
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-300/30">
-                  Step 4/5
+                  {paid ? "Step 5/5" : selectedSeats.length ? "Step 5/5" : "Step 4/5"}
                 </span>
               </div>
 
@@ -603,6 +738,10 @@ export default function BookingPage() {
                     <span>{multiplier.toFixed(2)}x</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span>Payment method</span>
+                    <span className="capitalize">
+                      {paymentMethod === "card" ? "Card" : "Bank transfer / QR"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-base font-semibold text-white pt-2">
                     <span>Total</span>
@@ -612,42 +751,218 @@ export default function BookingPage() {
 
                 <button
                   onClick={proceedToPayment}
-                  disabled={!currentShowtime || selectedSeats.length === 0 || isPaying}
+                  disabled={!currentShowtime || selectedSeats.length === 0 || isPaying || paid}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.15em] text-white shadow-[0_18px_40px_-24px_rgba(99,102,241,0.95)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-400"
                 >
                   {isPaying ? <Loader2 className="h-4 w-4 animate-spin" /> : <HandCoins className="h-4 w-4" />}
-                  {isPaying ? "Processing..." : "Confirm & Pay"}
+                  {paymentMethod === "bank"
+                    ? paid
+                      ? "Đã thanh toán"
+                      : bankQrReady
+                        ? "Tạo lại mã QR"
+                        : "Tạo mã QR"
+                    : paid
+                      ? "Paid"
+                      : isPaying
+                        ? "Processing..."
+                        : "Confirm & Pay"}
                 </button>
                 <p className="text-xs text-slate-500">
-                  Payment is mocked. In production integrate with backend payments and seat holds.
+                  Chuyển khoản: tạo mã QR, quét và bấm "Xác nhận đã chuyển khoản". Thẻ: mock gateway.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/30 to-slate-950 p-5 ring-1 ring-white/10">
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-indigo-100">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/30 to-slate-950 p-5 ring-1 ring-white/10 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-indigo-100">
                 <ShieldCheck className="h-4 w-4" />
-                Payment (mock)
+                Payment gateway (mock)
               </div>
-              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 p-6 text-center">
-                <div className="grid h-36 w-36 place-items-center rounded-xl bg-white text-black font-semibold">
-                  QR MOCK
-                </div>
-                {paid ? (
-                  <div className="flex items-center gap-2 text-emerald-300 text-sm font-semibold">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Payment success • seats locked
+
+              <div className="grid gap-2 md:grid-cols-2">
+                <button
+                  onClick={() => setPaymentMethod("card")}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    paymentMethod === "card"
+                      ? "border-indigo-400/70 bg-indigo-500/15 ring-1 ring-indigo-300/40"
+                      : "border-white/10 bg-white/5 hover:border-indigo-400/40"
+                  }`}
+                >
+                  <CreditCard className="h-5 w-5 text-indigo-200" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Thẻ tín dụng/Ghi nợ</p>
+                    <p className="text-xs text-slate-300">Visa, Master, JCB</p>
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-400">
-                    Scan to simulate pay. In real flow, call backend to confirm and mark seats as sold.
-                  </p>
-                )}
+                </button>
+                <button
+                  onClick={() => setPaymentMethod("bank")}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    paymentMethod === "bank"
+                      ? "border-indigo-400/70 bg-indigo-500/15 ring-1 ring-indigo-300/40"
+                      : "border-white/10 bg-white/5 hover:border-indigo-400/40"
+                  }`}
+                >
+                  <QrCode className="h-5 w-5 text-indigo-200" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Chuyển khoản/QR</p>
+                    <p className="text-xs text-slate-300">Tạo mã QR, quét rồi xác nhận</p>
+                  </div>
+                </button>
               </div>
+
+              {paymentMethod === "card" ? (
+                <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div>
+                    <label className="text-xs text-slate-400">Tên chủ thẻ</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                      placeholder="NGUYEN VAN A"
+                      value={cardInfo.holder}
+                      onChange={(e) => setCardInfo({ ...cardInfo, holder: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">Số thẻ</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                      placeholder="4444 3333 2222 1111"
+                      value={cardInfo.number}
+                      onChange={(e) => setCardInfo({ ...cardInfo, number: e.target.value })}
+                      maxLength={23}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400">Hạn thẻ</label>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                        placeholder="MM/YY"
+                        value={cardInfo.expiry}
+                        onChange={(e) => setCardInfo({ ...cardInfo, expiry: e.target.value })}
+                        maxLength={5}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">CVC</label>
+                      <input
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                        placeholder="***"
+                        value={cardInfo.cvc}
+                        onChange={(e) => setCardInfo({ ...cardInfo, cvc: e.target.value })}
+                        maxLength={4}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div>
+                    <label className="text-xs text-slate-400">Ngân hàng</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                      value={bankInfo.bank}
+                      onChange={(e) => setBankInfo({ ...bankInfo, bank: e.target.value })}
+                    >
+                      <option value="VCB">Vietcombank</option>
+                      <option value="TCB">Techcombank</option>
+                      <option value="MB">MB Bank</option>
+                      <option value="ACB">ACB</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">Mã giao dịch/biên lai</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent focus:border-indigo-400/60 focus:ring-indigo-400/40"
+                      placeholder="Nhập mã sau khi chuyển khoản"
+                      value={bankInfo.transactionId}
+                      onChange={(e) =>
+                        setBankInfo({ ...bankInfo, transactionId: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-dashed border-indigo-400/40 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-100">
+                    <Banknote className="h-4 w-4" />
+                    Quét mã QR, chuyển khoản đúng số tiền, nhập đúng mã tham chiếu.
+                  </div>
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 p-4 text-center">
+                    {qrValue && bankQrReady ? (
+                      <QRCodeSVG value={qrValue} size={180} bgColor="#0f172a" fgColor="#ffffff" />
+                    ) : (
+                      <div className="grid h-36 w-36 place-items-center rounded-xl border border-dashed border-white/20 text-xs text-slate-400">
+                        QR sẽ hiển thị sau khi bạn bấm "Tạo mã QR"
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-300 space-y-1">
+                      <p>Số tiền: {total.toFixed(0)} VND</p>
+                      <p>
+                        Mã tham chiếu:{" "}
+                        <span className="font-semibold text-white">
+                          {paymentRefState || "chưa tạo"}
+                        </span>
+                      </p>
+                      <p>Nhớ nhập mã tham chiếu vào nội dung chuyển khoản.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={proceedToPayment}
+                disabled={
+                  !currentShowtime ||
+                  selectedSeats.length === 0 ||
+                  isPaying ||
+                  paid
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white shadow-[0_18px_40px_-24px_rgba(99,102,241,0.95)] transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-400"
+              >
+                {isPaying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <HandCoins className="h-4 w-4" />
+                )}
+                {paymentMethod === "bank"
+                  ? paid
+                    ? "Đã thanh toán"
+                    : bankQrReady
+                      ? "Tạo lại mã QR"
+                      : "Tạo mã QR"
+                  : paid
+                    ? "Paid"
+                    : isPaying
+                      ? "Processing..."
+                      : "Thanh toán & đặt vé"}
+              </button>
+
+              {paymentMethod === "bank" && (
+                <button
+                  onClick={confirmBankPayment}
+                  disabled={!bankQrReady || isPaying || paid}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/50 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-emerald-100 transition hover:border-emerald-300/70 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {paid ? "Đã xác nhận" : "Xác nhận đã chuyển khoản"}
+                </button>
+              )}
+
+              <p className="text-xs text-slate-400">
+                Đây là cổng thanh toán giả lập: tạo mã tham chiếu, hiển thị mã QR chuyển khoản,
+                và chỉ gọi API checkout sau khi bạn xác nhận đã quét/nhập mã.
+              </p>
+
+              {paid && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Payment verified • seats locked
+                </div>
+              )}
             </div>
+
           </div>
         </section>
       </main>
     </div>
   );
 }
+
+

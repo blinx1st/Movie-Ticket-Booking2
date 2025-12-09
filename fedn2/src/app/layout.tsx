@@ -3,7 +3,7 @@ import React from "react";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata = {
-  title: "GenZmephim",
+  title: "MovieTicket",
   description: "Trang đặt vé xem phim",
 };
 
