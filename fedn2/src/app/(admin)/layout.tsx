@@ -1,12 +1,40 @@
 "use client";
-import React from "react";
-import { SessionProvider } from "next-auth/react";
+import React, { useEffect } from "react";
+import { SessionProvider, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { SidebarProvider } from "@/context/SidebarContext";
 import AppSidebar from "@/layout/AppSidebar";
 import AppHeader from "@/layout/AppHeader";
 import Backdrop from "@/layout/Backdrop";
 import TokenSync from "@/components/auth/token-sync";
+
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const role = (session?.user as any)?.role;
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!role || role.toUpperCase() !== "ADMIN") {
+      router.replace("/auth/login");
+    }
+  }, [role, router, status]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
+        Checking permission...
+      </div>
+    );
+  }
+
+  if (role?.toUpperCase() === "ADMIN") {
+    return <>{children}</>;
+  }
+
+  return null;
+}
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   return (
@@ -27,7 +55,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <SessionProvider>
         <SidebarProvider>
           <TokenSync />
-          <AdminLayoutContent>{children}</AdminLayoutContent>
+          <AdminGuard>
+            <AdminLayoutContent>{children}</AdminLayoutContent>
+          </AdminGuard>
         </SidebarProvider>
       </SessionProvider>
     </ThemeProvider>

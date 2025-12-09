@@ -69,6 +69,8 @@ const ModalChangePassword = (props: any) => {
         description: res?.message,
       });
     }
+    
+  console.log("res?.data:", res?.data)
   };
 
   const resetModel = () => {

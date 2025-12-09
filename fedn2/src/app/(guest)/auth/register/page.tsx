@@ -1,7 +1,9 @@
 import Register from "@/components/auth/register";
 
-const RegisterPage = () => {
-  return <Register />;
-};
-
-export default RegisterPage;
+export default function RegisterPage() {
+  return (
+    <div className="min-h-screen bg-white text-black ">
+      <Register />
+    </div>
+  );
+}

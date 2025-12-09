@@ -6,7 +6,13 @@ type VerifyPageProps = {
 
 const VerifyPage = async ({ params }: VerifyPageProps) => {
   const { id } = await params;
-  return <Verify id={id} />;
+  return (
+        <div className="min-h-screen bg-white text-black ">
+      <Verify id={id} />
+    </div>
+  );
 };
+
+
 
 export default VerifyPage;

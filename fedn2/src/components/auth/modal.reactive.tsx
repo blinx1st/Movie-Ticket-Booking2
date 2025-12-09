@@ -29,7 +29,7 @@ const ModalReactive = (props: any) => {
   const onFinishStep0 = async (values: any) => {
     const { email } = values;
     const res = await sendRequest<IBackendRes<any>>({
-      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/retry-active`,
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/retry-active`,
       method: "POST",
       body: {
         email,
