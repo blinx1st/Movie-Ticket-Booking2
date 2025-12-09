@@ -42,7 +42,7 @@ const Verify = (props: any) => {
 
   return (
     <Row justify={"center"} style={{ marginTop: "30px" }}>
-      <Col xs={24} md={16} lg={8}>
+      <Col xs={24} md={24} lg={13}>
         <fieldset
           style={{
             padding: "15px",

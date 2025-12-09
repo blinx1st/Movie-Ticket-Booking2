@@ -33,13 +33,14 @@ const Register = () => {
 
   return (
     <Row justify={"center"} style={{ marginTop: "30px" }}>
-      <Col xs={24} md={16} lg={8}>
+      <Col xs={24} md={24} lg={13}>
         <fieldset
           style={{
             padding: "15px",
             margin: "5px",
             border: "1px solid #ccc",
             borderRadius: "5px",
+            width: "400px"
           }}
         >
 <legend className="font-bold text-black">Đăng kí tài khoản</legend>

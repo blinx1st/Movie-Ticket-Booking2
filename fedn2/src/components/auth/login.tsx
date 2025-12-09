@@ -48,6 +48,8 @@ const Login = () => {
               margin: "5px",
               border: "1px solid #ccc",
               borderRadius: "5px",
+              width: "400px",
+              justifySelf: "center"
             }}
           >
         <legend style={{ fontWeight: "bold", color: "black" }}>Đăng Nhập</legend>
