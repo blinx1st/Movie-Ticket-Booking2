@@ -45,6 +45,15 @@ export default function UserProfilePage() {
     return uid ? String(uid) : undefined;
   }, [session]);
 
+  const accessToken = useMemo(() => {
+    const tokenFromSession = (session?.user as any)?.access_token;
+    const tokenRoot = (session as any)?.access_token;
+    if (tokenFromSession) return tokenFromSession as string;
+    if (tokenRoot) return tokenRoot as string;
+    if (typeof window !== "undefined") return localStorage.getItem("token") || undefined;
+    return undefined;
+  }, [session]);
+
   // sync session info into profile fields
   useEffect(() => {
     const name = (session?.user as any)?.name || "";
@@ -61,6 +70,19 @@ export default function UserProfilePage() {
       }
       setLoading(true);
       try {
+        // fetch profile fresh from backend to reflect updates
+        const userRes = await sendRequest<IBackendRes<any>>({
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/${userId}`,
+          method: "GET",
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
+        if (userRes?.data) {
+          setProfile({
+            fullName: (userRes.data as any)?.full_name || (userRes.data as any)?.name || "",
+            email: (userRes.data as any)?.email || "",
+            phone: ((userRes.data as any)?.phone ?? "").toString(),
+          });
+        }
         const res = await sendRequest<IBackendRes<Booking[]>>({
           url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/bookings/me`,
           method: "GET",
@@ -76,15 +98,52 @@ export default function UserProfilePage() {
     fetchData();
   }, [userId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!userId) {
+      message.error("Please sign in to update profile.");
+      return;
+    }
     setSaving(true);
     setSaved(false);
-    setTimeout(() => {
+    try {
+      const payload: any = {
+        _id: userId,
+        full_name: profile.fullName,
+        email: profile.email,
+      };
+      if (profile.phone?.trim()) {
+        payload.phone = profile.phone.trim();
+      }
+
+      const res = await sendRequest<IBackendRes<any>>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users`,
+        method: "PATCH",
+        body: payload,
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+
+      if (+res?.statusCode >= 200 && +res?.statusCode < 300) {
+        message.success("Profile updated successfully.");
+        setSaved(true);
+        // refresh local profile with returned data if available
+        if (res?.data) {
+          setProfile((prev) => ({
+            fullName: (res.data as any)?.full_name ?? prev.fullName,
+            email: (res.data as any)?.email ?? prev.email,
+            phone: ((res.data as any)?.phone ?? prev.phone)?.toString(),
+          }));
+        }
+      } else if (res?.data || res?.message || res?.statusCode) {
+        message.error(res?.message || "Failed to update profile.");
+      } else {
+        message.error("Failed to update profile.");
+      }
+    } catch (error: any) {
+      message.error(error?.message || "Failed to update profile.");
+    } finally {
       setSaving(false);
-      setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      message.success("Saved locally (mock). Connect to profile API to persist.");
-    }, 900);
+    }
   };
 
   const transactions = bookings.map((b) => ({

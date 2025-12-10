@@ -1,12 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from 'src/users/schema/user.schema';
-import { Model } from 'mongoose';
+import mongoose, { Model, HydratedDocument } from 'mongoose';
 import { hashPasswordHelper } from 'src/helpers/ulis';
 import aqp from 'api-query-params';
-import mongoose from 'mongoose';
 import {
   ChangePasswordAuthDto,
   CodeAuthDto,
@@ -91,15 +94,68 @@ export class UsersService {
     return `This action returns a #${id} user`;
   }
 
+  async findByFlexibleId(id: string): Promise<HydratedDocument<User>> {
+    const isObjectId = mongoose.isValidObjectId(id);
+    let user: HydratedDocument<User> | null = null;
+    if (isObjectId) {
+      user = await this.userModel.findById(id).select('-password');
+    }
+    if (!user) {
+      // fallback: treat id as email
+      user = await this.userModel.findOne({ email: id }).select('-password');
+    }
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
   async findByEmail(email: string) {
     return await this.userModel.findOne({ email });
   }
 
   async update(updateUserDto: UpdateUserDto) {
-    return await this.userModel.updateOne(
-      { _id: updateUserDto },
-      { ...updateUserDto },
-    );
+    const { _id, id, full_name, email, phone, password } =
+      updateUserDto as any;
+    const targetId = _id || id;
+    if (!targetId) {
+      throw new BadRequestException('User id is required');
+    }
+
+    const updatePayload: any = {};
+    if (full_name !== undefined) updatePayload.full_name = full_name;
+    if (email !== undefined) updatePayload.email = email;
+    if (phone !== undefined && phone !== null && phone !== '') {
+      const phoneNum = Number(phone);
+      if (Number.isNaN(phoneNum)) {
+        throw new BadRequestException('Phone must be numeric');
+      }
+      updatePayload.phone = phoneNum;
+    }
+    if (password !== undefined) updatePayload.password = password;
+
+    const isObjectId = mongoose.isValidObjectId(targetId);
+    let updated;
+    if (isObjectId) {
+      updated = await this.userModel.findByIdAndUpdate(
+        targetId,
+        updatePayload,
+        { new: true },
+      );
+    } else if (email) {
+      // fallback update by email if id is not a valid ObjectId (avoid cast errors)
+      updated = await this.userModel.findOneAndUpdate(
+        { email },
+        updatePayload,
+        { new: true },
+      );
+    } else {
+      throw new BadRequestException('User id is invalid');
+    }
+    if (!updated) {
+      throw new NotFoundException('User not found');
+    }
+    return updated;
   }
 
   async remove(_id: string) {

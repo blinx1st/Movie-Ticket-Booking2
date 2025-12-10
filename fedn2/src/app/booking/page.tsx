@@ -421,6 +421,12 @@ export default function BookingPage() {
               <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">
                 <span className="text-slate-200">Xin chào,</span>
                 <span className="text-white">{displayName}</span>
+                <Link
+                  href="/user/profile"
+                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40 hover:text-white"
+                >
+                  Profile
+                </Link>
                 <button
                   onClick={() => signOut({ callbackUrl: "/auth/login" })}
                   className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40 hover:text-white"
