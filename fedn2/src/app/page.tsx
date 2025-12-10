@@ -357,7 +357,7 @@ export default function HomePage() {
           <div>
             <p className="text-lg font-semibold">Group6 Cinema Network</p>
             <p className="text-sm text-gray-400">
-              Hotline: 1900-123-456 Aú Email: support@group6cinema.com
+              Hotline: 1900-123-456 or Email: support@group6cinema.com
             </p>
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-gray-300">
