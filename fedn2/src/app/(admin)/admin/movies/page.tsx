@@ -575,6 +575,7 @@ const filteredMovies = movies.filter((movie) =>
                         >
                           <option value="Now Showing">Now Showing</option>
                           <option value="Coming Soon">Coming Soon</option>
+                          <option value="Hidden">Hidden</option>
                         </select>
                       </div>
                       <div>

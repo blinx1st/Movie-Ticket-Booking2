@@ -35,7 +35,8 @@ export default function MoviesPage() {
           method: "GET",
         });
         if (Array.isArray(res?.data) && res.data.length > 0) {
-          setMovies(res.data);
+          const visible = res.data.filter((m) => m.status !== "Hidden");
+          setMovies(visible);
         }
       } catch (err) {
         // fallback giữ mock
