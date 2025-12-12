@@ -55,6 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.user = (user as IUser);
                 (token.user as any).role = (user as any).role || "USER";
                 (token as any).phone = (user as any).phone;
+                (token as any).access_token = (user as any).access_token;
             }
             return token
         },
@@ -62,6 +63,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             (session.user as IUser) = token.user
             ;(session.user as any).phone = (token as any).phone;
             ;(session.user as any).role = (token.user as any)?.role || "USER";
+            ;(session.user as any).access_token = (token as any).access_token;
+            (session as any).access_token = (token as any).access_token;
+            (session as any).accessToken = (token as any).access_token;
             return session
         },
         // authorized: async ({ auth }) => {

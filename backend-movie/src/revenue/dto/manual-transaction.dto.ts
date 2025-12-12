@@ -7,7 +7,7 @@ export class ManualTransactionDto {
   @IsOptional()
   @IsString()
   status?: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsString() userId?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() userId?: string; // string to align with user Mongo _id
   @ApiProperty({ required: false }) @IsOptional() @IsNumber() movieId?: number;
   @ApiProperty({ required: false })
   @IsOptional()

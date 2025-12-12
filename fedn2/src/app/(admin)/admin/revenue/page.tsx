@@ -38,9 +38,11 @@ export default function RevenuePage() {
   const accessToken = useMemo(() => {
     const tokenFromSession = (session?.user as any)?.access_token;
     const tokenRoot = (session as any)?.access_token;
+    const tokenUpper = (session as any)?.accessToken;
     if (tokenFromSession) return tokenFromSession as string;
+    if (tokenUpper) return tokenUpper as string;
     if (tokenRoot) return tokenRoot as string;
-    if (typeof window !== "undefined") return localStorage.getItem("token");
+    if (typeof window !== "undefined") return localStorage.getItem("token") || localStorage.getItem("access_token");
     return null;
   }, [session]);
   const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
@@ -105,7 +107,7 @@ export default function RevenuePage() {
       amount: Number(formData.amount),
       status: formData.status,
       paymentMethod: formData.paymentMethod || "Manual",
-      userId: formData.userId ? Number(formData.userId) : undefined,
+      userId: formData.userId ? formData.userId.trim() : undefined,
       movieId: formData.movieId ? Number(formData.movieId) : undefined,
       showtimeId: formData.showtimeId ? Number(formData.showtimeId) : undefined,
       note: formData.note || undefined,
